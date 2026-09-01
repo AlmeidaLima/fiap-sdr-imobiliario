@@ -1161,3 +1161,31 @@ Evidenciar
 ```
 
 A qualidade da implementação é determinada não apenas pelo código produzido, mas pela capacidade de demonstrar que o comportamento esperado foi realmente atendido.
+
+## Execução e validação do projeto
+
+Antes de implementar uma tarefa, o agente deve consultar o `README.md` para verificar as instruções atualizadas de execução.
+
+O comando padrão para subir o ambiente é:
+
+```bash
+docker compose up --build -d
+```
+
+Para verificar os serviços:
+
+```bash
+docker compose ps
+```
+
+Para executar os testes do backend:
+
+```bash
+docker compose exec backend python -m pytest -v
+```
+
+Antes de declarar uma alteração concluída, o agente deve garantir que o ambiente continue executando corretamente.
+
+O `README.md` é a fonte oficial para comandos de instalação, execução e validação do ambiente.
+
+O agente não deve inventar comandos de inicialização diferentes quando o procedimento já estiver documentado no README.
