@@ -48,6 +48,27 @@ Projeto em desenvolvimento.
 - [x] Ciclo de migrations validado
 - [x] Suíte completa executada no Docker: **4 testes passando**
 
+### Missão 03 — Estrutura da API
+
+**Status: Concluída**
+
+- [x] Endpoint `/health` separado em router próprio
+- [x] Schema Pydantic `HealthResponse` criado
+- [x] Configurações da aplicação centralizadas em `app/core/config.py`
+- [x] `DATABASE_URL` integrada ao `Settings`
+- [x] SQLAlchemy e Alembic utilizando a mesma fonte de configuração
+- [x] Router principal da API criado
+- [x] Versionamento de endpoints definido com prefixo `/api/v1`
+- [x] Endpoint técnico `/api/v1/info` criado
+- [x] Schema Pydantic `InfoResponse` criado
+- [x] Tratamento padronizado de `HTTPException`
+- [x] Exceção própria `ApplicationException` criada
+- [x] Tratamento padronizado de erros de validação `422`
+- [x] Schema `ErrorResponse` criado
+- [x] Contratos de erro documentados no Swagger
+- [x] Testes do healthcheck, info, handlers e schemas criados
+- [x] Regressão completa executada no Docker
+
 #### Persistência
 
 A camada de persistência utiliza **SQLAlchemy 2.x**, **psycopg 3**, **PostgreSQL 16** e **pgvector**. A conexão é configurada pela variável `DATABASE_URL`. A configuração geral da aplicação, incluindo a URL do banco, está centralizada em `backend/app/core/config.py`. O gerenciamento de sessões é realizado por `SessionLocal` e `get_db()` em `backend/app/database/session.py`, e a Base declarativa fica em `backend/app/database/base.py`.
