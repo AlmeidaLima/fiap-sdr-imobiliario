@@ -50,7 +50,7 @@ Projeto em desenvolvimento.
 
 #### Persistência
 
-A camada de persistência utiliza **SQLAlchemy 2.x**, **psycopg 3**, **PostgreSQL 16** e **pgvector**. A conexão é configurada pela variável `DATABASE_URL`, com configuração centralizada em `backend/app/database/config.py`. O gerenciamento de sessões é realizado por `SessionLocal` e `get_db()` em `backend/app/database/session.py`, e a Base declarativa fica em `backend/app/database/base.py`.
+A camada de persistência utiliza **SQLAlchemy 2.x**, **psycopg 3**, **PostgreSQL 16** e **pgvector**. A conexão é configurada pela variável `DATABASE_URL`. A configuração geral da aplicação, incluindo a URL do banco, está centralizada em `backend/app/core/config.py`. O gerenciamento de sessões é realizado por `SessionLocal` e `get_db()` em `backend/app/database/session.py`, e a Base declarativa fica em `backend/app/database/base.py`.
 
 A arquitetura básica da persistência é:
 
@@ -106,6 +106,135 @@ Validação final realizada dentro do Docker:
 
 Os warnings atuais são avisos de depreciação das dependências de teste e não impediram a execução da suíte.
 
+
+### Missão 03 — Estrutura da API
+
+**Status: Concluída**
+
+- [x] Endpoint `/health` separado em router próprio
+- [x] Schema Pydantic `HealthResponse` criado
+- [x] Configurações da aplicação centralizadas em `app/core/config.py`
+- [x] `DATABASE_URL` integrada ao `Settings`
+- [x] SQLAlchemy e Alembic utilizando a mesma fonte de configuração
+- [x] Router principal da API criado
+- [x] Versionamento de endpoints definido com prefixo `/api/v1`
+- [x] Endpoint técnico `/api/v1/info` criado
+- [x] Schema Pydantic `InfoResponse` criado
+- [x] Tratamento padronizado de `HTTPException`
+- [x] Exceção própria `ApplicationException` criada
+- [x] Tratamento padronizado de erros de validação `422`
+- [x] Schema `ErrorResponse` criado
+- [x] Contratos de erro documentados no Swagger
+- [x] Testes do healthcheck, info, handlers e schemas criados
+- [x] Regressão completa executada no Docker
+
+#### Organização da API
+
+A aplicação passou a separar endpoints técnicos dos endpoints versionados de negócio:
+
+```text
+GET /health
+    → endpoint técnico da aplicação
+
+/api/v1/*
+    → endpoints versionados da API
+```
+
+O router principal está em:
+
+```text
+backend/app/api/router.py
+```
+
+Os endpoints específicos ficam em:
+
+```text
+backend/app/api/routes/
+```
+
+Atualmente estão disponíveis:
+
+```text
+GET /health
+GET /api/v1/info
+```
+
+#### Configuração centralizada
+
+As configurações gerais da aplicação são definidas em:
+
+```text
+backend/app/core/config.py
+```
+
+O objeto `settings` concentra informações como:
+
+```text
+app_name
+app_description
+app_version
+database_url
+```
+
+Essa configuração é reutilizada pelo FastAPI, SQLAlchemy, Alembic e pelos endpoints que precisam expor informações da aplicação.
+
+#### Schemas Pydantic
+
+Os contratos de resposta foram separados em `backend/app/schemas/`:
+
+```text
+health.py  → HealthResponse
+info.py    → InfoResponse
+error.py   → ErrorResponse
+```
+
+Isso permite tipar as respostas da API e documentar seus contratos automaticamente no Swagger.
+
+#### Tratamento de erros
+
+A aplicação possui handlers centralizados em:
+
+```text
+backend/app/core/handlers/
+```
+
+São tratados:
+
+```text
+HTTPException
+ApplicationException
+RequestValidationError (422)
+```
+
+O formato padrão de erro é baseado em:
+
+```json
+{
+  "error": "application_error",
+  "detail": "Descrição do erro"
+}
+```
+
+Erros de validação também seguem o mesmo envelope, com `detail` contendo a lista de validações retornadas pelo FastAPI/Pydantic.
+
+#### Testes adicionados na Missão 03
+
+A missão adicionou ou ampliou testes para:
+
+```text
+test_health.py               → healthcheck e contrato de resposta
+test_info.py                 → endpoint versionado /api/v1/info
+test_error_handler.py        → tratamento de ApplicationException
+test_validation_handler.py   → tratamento de validação 422
+test_error_schema.py         → contrato ErrorResponse
+```
+
+A regressão completa deve ser executada com:
+
+```bash
+docker compose exec backend python -m pytest -v
+```
+
 ## Stack
 
 Tecnologias definidas para o projeto:
@@ -133,17 +262,34 @@ Tecnologias planejadas para as próximas etapas:
 ```text
 fiap-sdr-imobiliario/
 ├── backend/
+│   ├── alembic/
+│   │   └── versions/
 │   ├── app/
 │   │   ├── agents/
 │   │   ├── api/
+│   │   │   ├── router.py
+│   │   │   └── routes/
+│   │   │       ├── health.py
+│   │   │       └── info.py
+│   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   ├── exceptions.py
+│   │   │   └── handlers/
+│   │   │       ├── application_exception.py
+│   │   │       ├── http_exception.py
+│   │   │       └── validation_exception.py
 │   │   ├── database/
+│   │   │   ├── base.py
+│   │   │   └── session.py
 │   │   ├── integrations/
 │   │   ├── models/
 │   │   ├── rag/
+│   │   ├── schemas/
+│   │   │   ├── error.py
+│   │   │   ├── health.py
+│   │   │   └── info.py
 │   │   ├── services/
 │   │   └── tools/
-│   ├── alembic/
-│   │   └── versions/
 │   ├── tests/
 │   ├── alembic.ini
 │   ├── Dockerfile
@@ -174,9 +320,8 @@ fiap-sdr-imobiliario/
 ├── AGENTS.md
 ├── compose.yaml
 └── README.md
-
-
 ```
+
 ## Como executar o projeto
 
 ### Pré-requisitos
@@ -196,6 +341,8 @@ Não é necessário instalar Python, PostgreSQL ou Node.js localmente para execu
 ```bash
 git clone <URL_DO_REPOSITORIO>
 cd fiap-sdr-imobiliario
+```
+
 ---
 
 ### 2. Criar o arquivo de configuração
@@ -278,6 +425,12 @@ Health Check:
 http://localhost:8000/health
 ```
 
+Informações da API:
+
+```text
+http://localhost:8000/api/v1/info
+```
+
 Swagger:
 
 ```text
@@ -294,13 +447,17 @@ Os testes do backend podem ser executados dentro do Docker:
 docker compose exec backend python -m pytest -v
 ```
 
-Resultado esperado: todos os testes devem passar. Na conclusão da Missão 02, a suíte continha 4 testes:
+Resultado esperado: todos os testes devem passar. A suíte atualmente cobre:
 
 ```text
-tests/test_database_connection.py::test_database_connection PASSED
-tests/test_database_session.py::test_get_db_returns_valid_session PASSED
-tests/test_health.py::test_health_returns_status_ok PASSED
-tests/test_pgvector.py::test_pgvector_extension_is_enabled PASSED
+Conexão com PostgreSQL
+Gerenciamento de sessão SQLAlchemy
+Healthcheck e schema de resposta
+Endpoint /api/v1/info
+pgvector
+ApplicationException
+Erros de validação 422
+Schema padronizado de erros
 ```
 
 ---
@@ -365,6 +522,7 @@ Após subir o projeto, valide:
 [ ] docker compose ps apresenta os serviços ativos
 [ ] http://localhost:8000/health retorna status "ok"
 [ ] http://localhost:8000/docs apresenta o Swagger
+[ ] http://localhost:8000/api/v1/info retorna nome e versão da API
 [ ] http://localhost:3000 apresenta o frontend
 [ ] frontend informa que está conectado ao backend
 [ ] PostgreSQL responde ao SELECT 1
