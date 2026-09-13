@@ -1,458 +1,302 @@
-# Agente SDR Imobiliário com IA
+# 🏠 Agente SDR Imobiliário com IA
 
-POC desenvolvida para o Hackathon FIAP com o objetivo de criar um agente SDR imobiliário com IA capaz de qualificar leads, manter contexto de conversação, buscar imóveis e apoiar o atendimento comercial.
+Projeto desenvolvido como parte do Hackathon da Pós-Graduação **IA para Devs — FIAP**.
 
-## Status do projeto
+O objetivo do projeto é desenvolver um **Agente SDR Imobiliário com Inteligência Artificial**, capaz de apoiar a prospecção e qualificação de potenciais clientes interessados em imóveis.
 
-Projeto em desenvolvimento.
+A solução será capaz de consultar uma base real de imóveis, identificar propriedades compatíveis com as necessidades do cliente e utilizar técnicas de Inteligência Artificial e RAG para fornecer recomendações contextualizadas.
 
-### Missão 01 — Fundação do projeto
+---
 
-- [x] Repositório criado
-- [x] Estrutura de diretórios criada
-- [x] FastAPI executando
-- [x] Next.js executando
-- [x] PostgreSQL executando
-- [x] pgvector habilitado
-- [x] Docker Compose funcionando
-- [x] Endpoint `/health` funcionando
-- [x] Swagger disponível
-- [x] Frontend comunicando com backend
-- [x] `.env.example` criado
-- [x] `.gitignore` criado
-- [x] README criado
-- [x] ARCHITECTURE criado
-- [x] AGENTS criado
-- [x] Primeiros testes Pytest executando
-- [ ] Todos os integrantes conseguem executar o projeto
+# 🎯 Objetivo
 
-### Missão 02 — PostgreSQL + pgvector
+Construir um agente SDR imobiliário capaz de:
 
-**Status: Concluída**
+- Interagir com potenciais clientes;
+- Identificar preferências e necessidades;
+- Consultar uma base real de imóveis;
+- Filtrar imóveis por características relevantes;
+- Utilizar busca semântica;
+- Utilizar RAG (Retrieval-Augmented Generation);
+- Recomendar imóveis compatíveis com o perfil do cliente;
+- Manter uma arquitetura modular e evolutiva;
+- Permitir execução local por todos os integrantes do projeto.
 
-- [x] SQLAlchemy 2.x configurado
-- [x] psycopg 3 configurado
-- [x] Conexão Backend → PostgreSQL validada
-- [x] `DATABASE_URL` centralizada
-- [x] Engine SQLAlchemy criada
-- [x] `SessionLocal` implementada
-- [x] `get_db()` implementado
-- [x] `Base` declarativa criada
-- [x] Teste de conexão com PostgreSQL criado
-- [x] Teste de gerenciamento de sessão criado
-- [x] pgvector validado pela aplicação
-- [x] Inicialização automática do pgvector preparada
-- [x] Alembic inicializado e configurado
-- [x] Alembic integrado ao `Base.metadata`
-- [x] Migration baseline `64bbb5ca46ba` criada e versionada
-- [x] Ciclo de migrations validado
-- [x] Suíte completa executada no Docker: **4 testes passando**
+---
 
-### Missão 03 — Estrutura da API
+# 🏗️ Arquitetura
 
-**Status: Concluída**
-
-- [x] Endpoint `/health` separado em router próprio
-- [x] Schema Pydantic `HealthResponse` criado
-- [x] Configurações da aplicação centralizadas em `app/core/config.py`
-- [x] `DATABASE_URL` integrada ao `Settings`
-- [x] SQLAlchemy e Alembic utilizando a mesma fonte de configuração
-- [x] Router principal da API criado
-- [x] Versionamento de endpoints definido com prefixo `/api/v1`
-- [x] Endpoint técnico `/api/v1/info` criado
-- [x] Schema Pydantic `InfoResponse` criado
-- [x] Tratamento padronizado de `HTTPException`
-- [x] Exceção própria `ApplicationException` criada
-- [x] Tratamento padronizado de erros de validação `422`
-- [x] Schema `ErrorResponse` criado
-- [x] Contratos de erro documentados no Swagger
-- [x] Testes do healthcheck, info, handlers e schemas criados
-- [x] Regressão completa executada no Docker
-
-#### Persistência
-
-A camada de persistência utiliza **SQLAlchemy 2.x**, **psycopg 3**, **PostgreSQL 16** e **pgvector**. A conexão é configurada pela variável `DATABASE_URL`. A configuração geral da aplicação, incluindo a URL do banco, está centralizada em `backend/app/core/config.py`. O gerenciamento de sessões é realizado por `SessionLocal` e `get_db()` em `backend/app/database/session.py`, e a Base declarativa fica em `backend/app/database/base.py`.
-
-A arquitetura básica da persistência é:
+A aplicação está organizada inicialmente nos seguintes componentes:
 
 ```text
+Frontend
+   │
+   ▼
+Next.js
+   │
+   ▼
 FastAPI
    │
-   ▼
-get_db()
+   ├── API REST
+   ├── Services
+   ├── Repositories
+   ├── ETL
    │
    ▼
-SessionLocal
+PostgreSQL
    │
-   ▼
-SQLAlchemy
-   │
-   ▼
-psycopg 3
-   │
-   ▼
-PostgreSQL + pgvector
+   └── pgvector
 ```
 
-#### Migrations
+Tecnologias principais:
 
-As alterações de estrutura do banco são controladas pelo **Alembic**. A configuração está em `backend/alembic.ini` e `backend/alembic/`, utilizando a mesma `DATABASE_URL` da aplicação e `Base.metadata` como metadata dos models.
+| Tecnologia | Utilização |
+|---|---|
+| Python | Backend e processamento de dados |
+| FastAPI | API REST |
+| Pydantic | Validação e schemas |
+| SQLAlchemy | ORM e persistência |
+| Alembic | Migrations |
+| PostgreSQL | Banco de dados |
+| pgvector | Armazenamento/busca vetorial |
+| Pandas | Processamento do dataset |
+| Pytest | Testes automatizados |
+| Next.js | Frontend |
+| Docker | Containerização |
+| Docker Compose | Orquestração local |
+| Git / GitHub | Versionamento e colaboração |
 
-Comandos principais:
+---
 
-```bash
-docker compose exec backend alembic current
-docker compose exec backend alembic upgrade head
-docker compose exec backend alembic history
-```
-
-A migration inicial de baseline é `64bbb5ca46ba_baseline.py`. As migrations devem ser versionadas no Git e não devem existir somente dentro do container.
-
-#### Testes da camada de banco
-
-A Missão 02 adicionou os seguintes testes:
-
-```text
-test_database_connection.py  → conexão SQLAlchemy → PostgreSQL
-test_database_session.py     → gerenciamento de sessão
-test_pgvector.py             → disponibilidade da extensão vector
-test_health.py               → regressão do healthcheck
-```
-
-Validação final realizada dentro do Docker:
-
-```text
-4 passed, 2 warnings
-```
-
-Os warnings atuais são avisos de depreciação das dependências de teste e não impediram a execução da suíte.
-
-
-### Missão 03 — Estrutura da API
-
-**Status: Concluída**
-
-- [x] Endpoint `/health` separado em router próprio
-- [x] Schema Pydantic `HealthResponse` criado
-- [x] Configurações da aplicação centralizadas em `app/core/config.py`
-- [x] `DATABASE_URL` integrada ao `Settings`
-- [x] SQLAlchemy e Alembic utilizando a mesma fonte de configuração
-- [x] Router principal da API criado
-- [x] Versionamento de endpoints definido com prefixo `/api/v1`
-- [x] Endpoint técnico `/api/v1/info` criado
-- [x] Schema Pydantic `InfoResponse` criado
-- [x] Tratamento padronizado de `HTTPException`
-- [x] Exceção própria `ApplicationException` criada
-- [x] Tratamento padronizado de erros de validação `422`
-- [x] Schema `ErrorResponse` criado
-- [x] Contratos de erro documentados no Swagger
-- [x] Testes do healthcheck, info, handlers e schemas criados
-- [x] Regressão completa executada no Docker
-
-#### Organização da API
-
-A aplicação passou a separar endpoints técnicos dos endpoints versionados de negócio:
-
-```text
-GET /health
-    → endpoint técnico da aplicação
-
-/api/v1/*
-    → endpoints versionados da API
-```
-
-O router principal está em:
-
-```text
-backend/app/api/router.py
-```
-
-Os endpoints específicos ficam em:
-
-```text
-backend/app/api/routes/
-```
-
-Atualmente estão disponíveis:
-
-```text
-GET /health
-GET /api/v1/info
-```
-
-#### Configuração centralizada
-
-As configurações gerais da aplicação são definidas em:
-
-```text
-backend/app/core/config.py
-```
-
-O objeto `settings` concentra informações como:
-
-```text
-app_name
-app_description
-app_version
-database_url
-```
-
-Essa configuração é reutilizada pelo FastAPI, SQLAlchemy, Alembic e pelos endpoints que precisam expor informações da aplicação.
-
-#### Schemas Pydantic
-
-Os contratos de resposta foram separados em `backend/app/schemas/`:
-
-```text
-health.py  → HealthResponse
-info.py    → InfoResponse
-error.py   → ErrorResponse
-```
-
-Isso permite tipar as respostas da API e documentar seus contratos automaticamente no Swagger.
-
-#### Tratamento de erros
-
-A aplicação possui handlers centralizados em:
-
-```text
-backend/app/core/handlers/
-```
-
-São tratados:
-
-```text
-HTTPException
-ApplicationException
-RequestValidationError (422)
-```
-
-O formato padrão de erro é baseado em:
-
-```json
-{
-  "error": "application_error",
-  "detail": "Descrição do erro"
-}
-```
-
-Erros de validação também seguem o mesmo envelope, com `detail` contendo a lista de validações retornadas pelo FastAPI/Pydantic.
-
-#### Testes adicionados na Missão 03
-
-A missão adicionou ou ampliou testes para:
-
-```text
-test_health.py               → healthcheck e contrato de resposta
-test_info.py                 → endpoint versionado /api/v1/info
-test_error_handler.py        → tratamento de ApplicationException
-test_validation_handler.py   → tratamento de validação 422
-test_error_schema.py         → contrato ErrorResponse
-```
-
-A regressão completa deve ser executada com:
-
-```bash
-docker compose exec backend python -m pytest -v
-```
-
-## Stack
-
-Tecnologias definidas para o projeto:
-
-- Python
-- FastAPI
-- React
-- Next.js
-- PostgreSQL
-- pgvector
-- Docker
-- Docker Compose
-- Pytest
-
-Tecnologias planejadas para as próximas etapas:
-
-- LangGraph
-- llama.cpp
-- Modelo local Qwen ou Gemma
-- RAG
-- Evolution API
-
-## Estrutura do projeto
+# 📁 Estrutura do projeto
 
 ```text
 fiap-sdr-imobiliario/
+│
 ├── backend/
+│   │
 │   ├── alembic/
-│   │   └── versions/
+│   │   ├── versions/
+│   │   └── env.py
+│   │
 │   ├── app/
-│   │   ├── agents/
 │   │   ├── api/
-│   │   │   ├── router.py
-│   │   │   └── routes/
-│   │   │       ├── health.py
-│   │   │       └── info.py
+│   │   │   ├── routes/
+│   │   │   │   ├── health.py
+│   │   │   │   ├── info.py
+│   │   │   │   └── properties.py
+│   │   │   └── router.py
+│   │   │
 │   │   ├── core/
+│   │   │   ├── handlers/
 │   │   │   ├── config.py
-│   │   │   ├── exceptions.py
-│   │   │   └── handlers/
-│   │   │       ├── application_exception.py
-│   │   │       ├── http_exception.py
-│   │   │       └── validation_exception.py
+│   │   │   └── exceptions.py
+│   │   │
 │   │   ├── database/
 │   │   │   ├── base.py
+│   │   │   ├── property_repository.py
 │   │   │   └── session.py
-│   │   ├── integrations/
+│   │   │
 │   │   ├── models/
-│   │   ├── rag/
+│   │   │   └── property.py
+│   │   │
 │   │   ├── schemas/
 │   │   │   ├── error.py
 │   │   │   ├── health.py
-│   │   │   └── info.py
+│   │   │   ├── info.py
+│   │   │   └── property.py
+│   │   │
 │   │   ├── services/
-│   │   └── tools/
+│   │   │   └── property_service.py
+│   │   │
+│   │   └── main.py
+│   │
+│   ├── scripts/
+│   │   ├── __init__.py
+│   │   └── import_curitiba_properties.py
+│   │
 │   ├── tests/
-│   ├── alembic.ini
+│   │   ├── test_database_connection.py
+│   │   ├── test_database_session.py
+│   │   ├── test_error_handler.py
+│   │   ├── test_error_schema.py
+│   │   ├── test_health.py
+│   │   ├── test_info.py
+│   │   ├── test_pgvector.py
+│   │   ├── test_properties_api.py
+│   │   ├── test_property_repository.py
+│   │   ├── test_property_service.py
+│   │   └── test_validation_handler.py
+│   │
 │   ├── Dockerfile
+│   ├── alembic.ini
 │   └── requirements.txt
 │
-├── frontend/
-│   ├── app/
-│   ├── public/
-│   ├── Dockerfile
-│   └── package.json
-│
 ├── data/
-│   ├── knowledge/
-│   ├── processed/
 │   └── raw/
+│       └── curitiba_apartment_real_estate_data.csv
 │
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── CONVENTIONS.md
-│   └── REQUIREMENTS.md
+├── frontend/
 │
 ├── scripts/
 │   └── postgres/
 │       └── init.sql
-├── skills/
+│
 ├── .env.example
 ├── .gitignore
 ├── AGENTS.md
-├── compose.yaml
+├── ARCHITECTURE.md
+├── CONVENTIONS.md
+├── REQUIREMENTS.md
+├── docker-compose.yml
 └── README.md
 ```
 
-## Como executar o projeto
+---
 
-### Pré-requisitos
+# 🚀 Execução do projeto
 
-Para executar o projeto é necessário possuir:
+## Pré-requisitos
 
-- Git
-- Docker
-- Docker Compose
+Para executar o projeto localmente:
 
-Não é necessário instalar Python, PostgreSQL ou Node.js localmente para executar a aplicação através do Docker.
+- Docker;
+- Docker Compose;
+- Git.
+
+Opcionalmente, para desenvolvimento fora dos containers:
+
+- Python;
+- Node.js;
+- npm.
 
 ---
 
-### 1. Clonar o repositório
+## Variáveis de ambiente
 
-```bash
-git clone <URL_DO_REPOSITORIO>
-cd fiap-sdr-imobiliario
-```
-
----
-
-### 2. Criar o arquivo de configuração
-
-O projeto disponibiliza o arquivo:
+Crie o arquivo `.env` baseado no:
 
 ```text
 .env.example
 ```
 
-Crie uma cópia chamada:
+Exemplo:
 
-```text
-.env
+```env
+POSTGRES_DB=sdr_imobiliario
+POSTGRES_USER=sdr
+POSTGRES_PASSWORD=sdr
+POSTGRES_PORT=5432
+
+DATABASE_URL=postgresql+psycopg://sdr:sdr@postgres:5432/sdr_imobiliario
+
+BACKEND_PORT=8000
+FRONTEND_PORT=3000
 ```
 
-No Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Linux/macOS:
-
-```bash
-cp .env.example .env
-```
-
-O arquivo `.env` não deve ser versionado.
+Não versionar credenciais reais.
 
 ---
 
-### 3. Subir o ambiente
+# 🐳 Docker
 
-Na raiz do projeto execute:
+Subir a aplicação:
 
 ```bash
-docker compose up --build -d
+docker compose up -d
 ```
 
-O Docker Compose iniciará os serviços:
+Reconstruir o backend:
 
-```text
-frontend
-backend
-postgres
+```bash
+docker compose build backend
+docker compose up -d backend
 ```
 
----
-
-### 4. Verificar os containers
-
-Execute:
+Verificar containers:
 
 ```bash
 docker compose ps
 ```
 
-Os serviços deverão aparecer em execução.
+---
+
+# 🗄️ Banco de dados
+
+O projeto utiliza:
+
+```text
+PostgreSQL 16
++
+pgvector
+```
+
+Imagem Docker:
+
+```text
+pgvector/pgvector:pg16
+```
+
+A extensão `vector` é habilitada na inicialização do banco.
+
+Para acessar o PostgreSQL:
+
+```bash
+docker compose exec postgres psql -U sdr -d sdr_imobiliario
+```
+
+Validar pgvector:
+
+```sql
+SELECT extname
+FROM pg_extension
+WHERE extname = 'vector';
+```
 
 ---
 
-### 5. Acessar a aplicação
+# 🔄 Migrations
 
-Frontend:
+O gerenciamento do schema é realizado com **Alembic**.
 
-```text
-http://localhost:3000
+Aplicar migrations:
+
+```bash
+docker compose exec backend alembic upgrade head
 ```
 
-Backend:
+Verificar migration atual:
 
-```text
-http://localhost:8000
+```bash
+docker compose exec backend alembic current
 ```
 
-Health Check:
+Criar uma migration:
 
-```text
-http://localhost:8000/health
+```bash
+docker compose exec backend alembic revision --autogenerate -m "descricao da migration"
 ```
 
-Informações da API:
+---
+
+# 🌐 API
+
+A API utiliza o prefixo:
 
 ```text
-http://localhost:8000/api/v1/info
+/api/v1
 ```
 
-Swagger:
+Principais endpoints implementados:
+
+```text
+GET /api/v1/health
+GET /api/v1/info
+GET /api/v1/info/error
+GET /api/v1/properties
+```
+
+Documentação Swagger:
 
 ```text
 http://localhost:8000/docs
@@ -460,93 +304,699 @@ http://localhost:8000/docs
 
 ---
 
-### 6. Executar os testes
+# 🏠 API de imóveis
 
-Os testes do backend podem ser executados dentro do Docker:
+Endpoint:
+
+```http
+GET /api/v1/properties
+```
+
+A API permite consultar imóveis persistidos no PostgreSQL utilizando filtros.
+
+Exemplo:
+
+```http
+GET /api/v1/properties?neighborhood=Boa%20Vista&min_bedrooms=3&max_price=700000
+```
+
+A arquitetura utilizada segue:
+
+```text
+Route
+  ↓
+Service
+  ↓
+Repository
+  ↓
+SQLAlchemy
+  ↓
+PostgreSQL
+```
+
+Isso mantém as responsabilidades separadas e facilita testes e futuras evoluções.
+
+---
+
+# 📊 Base de imóveis
+
+Na Missão 04 foi integrada uma base real contendo:
+
+```text
+18.760 imóveis
+```
+
+O dataset utilizado possui informações como:
+
+```text
+usableAreas
+totalAreas
+suites
+bathrooms
+bedrooms
+parkingSpaces
+amenities
+description
+title
+zipCode
+lon
+lat
+street
+neighborhood
+poisList
+yearlyIptu
+monthlyCondoFee
+price
+```
+
+Esses dados são normalizados pelo processo ETL antes da persistência.
+
+O arquivo utilizado pelo projeto é:
+
+```text
+data/raw/curitiba_apartment_real_estate_data.csv
+```
+
+Tamanho aproximado:
+
+```text
+32,49 MB
+```
+
+---
+
+# 📦 Fonte e atribuição do Dataset
+
+A base de imóveis utilizada no projeto é o dataset **Curitiba Apartment Prices**, disponibilizado por **Fernando Wittmann** na plataforma Kaggle.
+
+Informações da fonte:
+
+| Informação | Valor |
+|---|---|
+| Dataset | Curitiba Apartment Prices |
+| Autor | Fernando Wittmann |
+| Plataforma | Kaggle |
+| Cidade | Curitiba — Paraná — Brasil |
+| Registros utilizados | 18.760 imóveis |
+| Licença declarada | CC0 — Public Domain |
+| Arquivo utilizado | `curitiba_apartment_real_estate_data.csv` |
+| Tamanho aproximado | 32,49 MB |
+
+Fonte oficial do dataset:
+
+https://www.kaggle.com/datasets/wittmannf/curitiba-apartment-prices/
+
+O dataset é disponibilizado sob licença **CC0 (Public Domain)**, conforme informado na página do dataset no Kaggle.
+
+A base foi incorporada ao projeto para fins acadêmicos e utilizada como fonte de dados para persistência, consultas de imóveis e preparação das etapas posteriores de busca semântica e RAG.
+
+---
+
+# 🔄 ETL de imóveis
+
+O script responsável pela importação está em:
+
+```text
+backend/scripts/import_curitiba_properties.py
+```
+
+O fluxo é:
+
+```text
+CSV
+ ↓
+Pandas
+ ↓
+normalização
+ ↓
+Property
+ ↓
+external_id
+ ↓
+verificação de duplicidade
+ ↓
+PostgreSQL
+```
+
+O ETL realiza:
+
+- Leitura do CSV;
+- Tratamento de valores nulos;
+- Conversão de inteiros;
+- Conversão de valores monetários;
+- Conversão de listas;
+- Normalização de CEP;
+- Conversão de latitude e longitude;
+- Tratamento de `amenities`;
+- Tratamento de pontos de interesse;
+- Criação de objetos `Property`;
+- Geração de identificador determinístico;
+- Verificação de registros existentes;
+- Persistência no PostgreSQL.
+
+Executar:
+
+```bash
+docker compose exec backend python -m scripts.import_curitiba_properties
+```
+
+---
+
+# 🔑 External ID
+
+Cada imóvel possui um:
+
+```text
+external_id
+```
+
+O identificador é calculado utilizando **SHA-256** sobre os dados normalizados do imóvel.
+
+São considerados atributos relevantes como:
+
+```text
+source
+title
+description
+usable_area
+total_area
+suites
+bathrooms
+bedrooms
+parking_spaces
+amenities
+zip_code
+longitude
+latitude
+street
+neighborhood
+pois
+yearly_iptu
+monthly_condo_fee
+price
+```
+
+O objetivo é possuir um identificador:
+
+- Determinístico;
+- Reproduzível;
+- Único;
+- Independente do ID sequencial do PostgreSQL.
+
+A coluna possui as restrições:
+
+```text
+NOT NULL
+UNIQUE
+INDEX
+```
+
+---
+
+# 🔁 ETL idempotente
+
+A importação foi projetada para ser **idempotente**.
+
+Isso significa que executar o importador novamente não duplica os imóveis já existentes.
+
+Primeira carga:
+
+```text
+18.760 imóveis importados
+```
+
+Após geração e backfill dos identificadores:
+
+```text
+Total de imóveis: 18760
+External IDs únicos: 18760
+Duplicidades: 0
+```
+
+Nova execução do ETL:
+
+```text
+Importação concluída:
+0 imóveis importados,
+18760 ignorados.
+```
+
+Portanto:
+
+```text
+executar ETL N vezes
+        ↓
+mesmos 18.760 imóveis
+        ↓
+sem duplicação
+```
+
+---
+
+# 🧪 Testes automatizados
+
+Os testes são executados com:
+
+```text
+Pytest
+```
+
+Executar toda a regressão:
 
 ```bash
 docker compose exec backend python -m pytest -v
 ```
 
-Resultado esperado: todos os testes devem passar. A suíte atualmente cobre:
+Resultado ao final da Missão 04:
 
 ```text
-Conexão com PostgreSQL
-Gerenciamento de sessão SQLAlchemy
-Healthcheck e schema de resposta
-Endpoint /api/v1/info
+15 passed, 14 warnings in 0.94s
+```
+
+Os testes cobrem, entre outros:
+
+- Health check;
+- Conexão com PostgreSQL;
+- Sessão SQLAlchemy;
+- pgvector;
+- Schemas;
+- Tratamento global de erros;
+- Validação de requests;
+- Repository de imóveis;
+- Service de imóveis;
+- API de imóveis;
+- Filtros de busca.
+
+---
+
+# 🧪 Estratégia das massas de teste
+
+A base de desenvolvimento possui os 18.760 imóveis reais.
+
+Para impedir que esses registros interfiram nos testes de filtros, os testes utilizam dados controlados, como:
+
+```text
+__TEST_PROPERTIES_API__
+__TEST_PROPERTY_FILTER__
+```
+
+Também são utilizados `external_id` exclusivos para registros de teste.
+
+Os testes da API realizam limpeza da própria massa antes e depois da execução, evitando resíduos que possam causar conflitos com a constraint `UNIQUE`.
+
+Como evolução arquitetural, poderá ser utilizado futuramente um banco exclusivo:
+
+```text
+sdr_imobiliario
+      ↓
+desenvolvimento
+
+sdr_imobiliario_test
+      ↓
+testes automatizados
+```
+
+---
+
+# ⚠️ Tratamento de erros
+
+A API possui tratamento centralizado para diferentes categorias de erro.
+
+Estrutura:
+
+```text
+app/core/
+├── exceptions.py
+└── handlers/
+    ├── application_exception.py
+    ├── http_exception.py
+    └── validation_exception.py
+```
+
+Isso permite padronizar as respostas de erro da aplicação.
+
+Exemplo:
+
+```json
+{
+  "error": "http_error",
+  "detail": "Erro de teste"
+}
+```
+
+---
+
+# ❤️ Health Check
+
+Endpoint:
+
+```http
+GET /api/v1/health
+```
+
+Exemplo de resposta:
+
+```json
+{
+  "status": "ok",
+  "service": "agente-sdr-imobiliario-api"
+}
+```
+
+O endpoint possui schema Pydantic específico para sua resposta.
+
+---
+
+# 📚 Missões do projeto
+
+O desenvolvimento está sendo realizado de forma incremental através de missões.
+
+---
+
+# ✅ Missão 01 — Fundação do Projeto
+
+**Status: CONCLUÍDA**
+
+Objetivo:
+
+Criar a estrutura inicial do projeto e garantir que todo o ambiente possa ser executado localmente.
+
+Checklist:
+
+- [x] Repositório criado;
+- [x] Estrutura `backend` criada;
+- [x] Estrutura `frontend` criada;
+- [x] FastAPI configurado;
+- [x] Next.js configurado;
+- [x] PostgreSQL configurado;
+- [x] pgvector habilitado;
+- [x] Docker Compose configurado;
+- [x] Endpoint `/health`;
+- [x] Swagger disponível;
+- [x] Comunicação frontend/backend;
+- [x] `.env.example`;
+- [x] `.gitignore`;
+- [x] `README.md`;
+- [x] `ARCHITECTURE.md`;
+- [x] `AGENTS.md`;
+- [x] Testes iniciais com Pytest;
+- [x] Projeto executável localmente pelo time.
+
+---
+
+# ✅ Missão 02 — Banco, Sessão e Migrations
+
+**Status: CONCLUÍDA**
+
+Objetivo:
+
+Criar a infraestrutura de persistência da aplicação e preparar o projeto para evolução controlada do banco.
+
+Checklist:
+
+- [x] SQLAlchemy configurado;
+- [x] `Base` criada;
+- [x] `SessionLocal` criada;
+- [x] `get_db` implementado;
+- [x] Configuração da conexão centralizada;
+- [x] Alembic configurado;
+- [x] Baseline criada;
+- [x] `alembic upgrade head` validado;
+- [x] Conexão com PostgreSQL testada;
+- [x] Sessão SQLAlchemy testada;
+- [x] pgvector validado;
+- [x] Testes executados dentro do container.
+
+Validação da missão:
+
+```text
+4 testes PASS
+```
+
+---
+
+# ✅ Missão 03 — Estrutura e Padronização da API
+
+**Status: CONCLUÍDA**
+
+Objetivo:
+
+Criar uma estrutura organizada e escalável para a API, padronizando rotas, schemas, configurações e tratamento de erros.
+
+Checklist:
+
+- [x] Estrutura `app/api` criada;
+- [x] Estrutura `app/api/routes` criada;
+- [x] Router principal criado;
+- [x] Prefixo `/api/v1` configurado;
+- [x] Rota `/api/v1/health`;
+- [x] Schema Pydantic do health;
+- [x] Configurações da aplicação centralizadas;
+- [x] Estrutura `app/core` criada;
+- [x] Rota de informações criada;
+- [x] Tratamento de `HTTPException`;
+- [x] Tratamento de erros de validação;
+- [x] Exceções da aplicação padronizadas;
+- [x] Schemas de erro criados;
+- [x] Testes de health;
+- [x] Testes de info;
+- [x] Testes de error handler;
+- [x] Testes de error schema;
+- [x] Testes de validation handler;
+- [x] Swagger validado;
+- [x] Organização da API preparada para novas funcionalidades.
+
+Exemplo de tratamento de erro validado:
+
+```json
+{
+  "error": "http_error",
+  "detail": "Erro de teste"
+}
+```
+
+---
+
+# ✅ Missão 04 — Imóveis, Persistência e Base Real
+
+**Status: CONCLUÍDA**
+
+Objetivo:
+
+Criar o domínio de imóveis, implementar a persistência, disponibilizar consultas pela API e integrar uma base real de imóveis preparada para as próximas etapas de IA e RAG.
+
+## Definition of Done
+
+### Base de dados
+
+- [x] Base real de imóveis selecionada;
+- [x] Dataset disponibilizado em `data/raw`;
+- [x] Fonte e licença do dataset documentadas;
+- [x] Dataset CC0 validado para utilização no projeto;
+- [x] CSV acessível pelo backend;
+- [x] 18.760 imóveis disponíveis;
+- [x] Estrutura do dataset analisada;
+- [x] Campos relevantes identificados.
+
+### Modelagem
+
+- [x] Model SQLAlchemy `Property` criado;
+- [x] Tabela `properties` criada;
+- [x] Migrations criadas com Alembic;
+- [x] Schemas Pydantic criados;
+- [x] Campos numéricos corretamente tipados;
+- [x] Amenities armazenadas;
+- [x] Pontos de interesse armazenados;
+- [x] Latitude e longitude disponíveis;
+- [x] Dados financeiros disponíveis.
+
+### Repository
+
+- [x] `PropertyRepository` criado;
+- [x] `save()` implementado;
+- [x] `find_by_id()` implementado;
+- [x] `find_all()` implementado;
+- [x] `find_by_filters()` implementado;
+- [x] Filtros de imóveis implementados.
+
+### Service
+
+- [x] `PropertyService` criado;
+- [x] Separação entre regra de negócio e persistência;
+- [x] Consulta de imóveis através do Service.
+
+### API
+
+- [x] Endpoint `GET /api/v1/properties`;
+- [x] Query parameters para filtros;
+- [x] Integração Route → Service → Repository;
+- [x] Respostas utilizando schemas Pydantic;
+- [x] Consulta integrada ao PostgreSQL.
+
+### ETL
+
+- [x] Script de importação criado;
+- [x] Leitura do CSV com Pandas;
+- [x] Conversão CSV → `Property`;
+- [x] Tratamento de valores nulos;
+- [x] Conversão de inteiros;
+- [x] Conversão de `Decimal`;
+- [x] Tratamento de CEP;
+- [x] Conversão de `amenities`;
+- [x] Conversão de `poisList`;
+- [x] Dry-run validado;
+- [x] Importação real executada;
+- [x] 18.760 imóveis persistidos.
+
+### Idempotência
+
+- [x] `external_id` implementado;
+- [x] SHA-256 utilizado;
+- [x] Hash baseado nos dados normalizados;
+- [x] Validação de colisões implementada;
+- [x] 18.760 hashes únicos;
+- [x] Zero duplicidades encontradas;
+- [x] Backfill dos registros existentes;
+- [x] `external_id` preenchido nos 18.760 registros;
+- [x] Índice `UNIQUE`;
+- [x] Restrição `NOT NULL`;
+- [x] ETL preparado para reexecução;
+- [x] Registros existentes ignorados automaticamente;
+- [x] Segunda execução validada com `0 importados / 18.760 ignorados`.
+
+### Testes
+
+- [x] Testes do Repository;
+- [x] Testes do Service;
+- [x] Testes da API;
+- [x] Massa de teste isolada logicamente dos dados reais;
+- [x] `external_id` exclusivo nas massas;
+- [x] Cleanup automático dos registros da API;
+- [x] Filtros testados;
+- [x] Regressão completa executada;
+- [x] **15 testes passando**.
+
+Resultado final:
+
+```text
+15 passed, 14 warnings in 0.94s
+```
+
+## Resultado da Missão 04
+
+Ao final da missão, a aplicação possui:
+
+```text
+Curitiba Apartment Prices
+         │
+         │ 18.760 imóveis
+         ▼
+        CSV
+         │
+         ▼
+        ETL
+         │
+         ├── normalização
+         ├── external_id SHA-256
+         ├── deduplicação
+         └── idempotência
+         │
+         ▼
+     PostgreSQL
+         │
+         ▼
+ PropertyRepository
+         │
+         ▼
+  PropertyService
+         │
+         ▼
+GET /api/v1/properties
+```
+
+A base de imóveis está preparada para servir como fonte de conhecimento para as próximas etapas do Agente SDR Imobiliário.
+
+---
+
+# 🔮 Próximas evoluções
+
+Com a conclusão da Missão 04, a aplicação possui uma base estruturada de imóveis e está preparada para avançar para as funcionalidades de Inteligência Artificial.
+
+Próximas etapas previstas:
+
+- Preparação dos documentos dos imóveis;
+- Estratégia de chunking;
+- Geração de embeddings;
+- Armazenamento vetorial com pgvector;
+- Busca semântica;
+- Retrieval;
+- RAG;
+- Integração com LLM;
+- Qualificação do lead;
+- Recomendação inteligente de imóveis;
+- Evolução da interface do SDR.
+
+---
+
+# 🧠 Evolução prevista para RAG
+
+A evolução arquitetural esperada é:
+
+```text
+Cliente
+   ↓
+Frontend
+   ↓
+FastAPI
+   ↓
+Agente SDR
+   ↓
+Consulta / Retrieval
+   ↓
 pgvector
-ApplicationException
-Erros de validação 422
-Schema padronizado de erros
+   ↓
+Imóveis relevantes
+   ↓
+LLM
+   ↓
+Resposta contextualizada
 ```
+
+A base estruturada na Missão 04 será utilizada como fonte para geração dos documentos e embeddings.
 
 ---
 
-### 7. Verificar PostgreSQL
-
-```bash
-docker compose exec postgres psql -U sdr -d sdr_imobiliario -c "SELECT 1;"
-```
-
----
-
-### 8. Verificar pgvector
-
-```bash
-docker compose exec postgres psql -U sdr -d sdr_imobiliario -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"
-```
-
-A extensão `vector` deverá estar disponível.
-
----
-
-### 9. Visualizar logs
-
-Todos os serviços:
-
-```bash
-docker compose logs -f
-```
-
-Somente backend:
-
-```bash
-docker compose logs -f backend
-```
-
-Somente frontend:
-
-```bash
-docker compose logs -f frontend
-```
-
----
-
-### 10. Parar o ambiente
-
-```bash
-docker compose down
-```
-
-Esse comando interrompe os containers sem remover o volume do PostgreSQL.
-
-> Não utilize `docker compose down -v` sem necessidade, pois `-v` remove os volumes e pode apagar os dados locais do PostgreSQL.
-
----
-
-## Validação rápida do ambiente
-
-Após subir o projeto, valide:
+# 📌 Estado atual
 
 ```text
-[ ] docker compose ps apresenta os serviços ativos
-[ ] http://localhost:8000/health retorna status "ok"
-[ ] http://localhost:8000/docs apresenta o Swagger
-[ ] http://localhost:8000/api/v1/info retorna nome e versão da API
-[ ] http://localhost:3000 apresenta o frontend
-[ ] frontend informa que está conectado ao backend
-[ ] PostgreSQL responde ao SELECT 1
-[ ] extensão vector está disponível
-[ ] Pytest executa com sucesso dentro do backend
+Missão 01 — Fundação do Projeto
+✅ CONCLUÍDA
+
+Missão 02 — Banco, Sessão e Migrations
+✅ CONCLUÍDA
+
+Missão 03 — Estrutura e Padronização da API
+✅ CONCLUÍDA
+
+Missão 04 — Imóveis, Persistência e Base Real
+✅ CONCLUÍDA
 ```
+
+Próxima etapa:
+
+```text
+Missão 05
+Busca Semântica, Embeddings e pgvector
+```
+
+---
+
+# 👥 Projeto acadêmico
+
+Projeto desenvolvido para o Hackathon da Pós-Graduação:
+
+**FIAP — IA para Devs**
+
+Tema:
+
+**Agente SDR Imobiliário com Inteligência Artificial**
