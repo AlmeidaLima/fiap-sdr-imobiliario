@@ -9,7 +9,7 @@ from app.database.base import Base
 # Importa os models para registrá-los no Base.metadata.
 # Novos models deverão ser importados aqui futuramente.
 from app.models.property import Property  # noqa: F401
-
+from app.models.property_embedding import PropertyEmbedding  # noqa: F401
 
 # Objeto de configuração do Alembic.
 config = context.config

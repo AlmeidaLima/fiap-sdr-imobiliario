@@ -1,11 +1,18 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.database.property_embedding_repository import (
+    PropertyEmbeddingRepository,
+)
 from app.database.property_repository import PropertyRepository
 from app.database.session import get_db
 from app.schemas.property import PropertyResponse
+from app.services.embedding_service import EmbeddingService
+from app.services.property_semantic_search_service import (
+    PropertySemanticSearchService,
+)
 from app.services.property_service import PropertyService
 
 
@@ -46,3 +53,53 @@ def search_properties(
         available=available,
         limit=limit,
     )
+
+
+@router.get("/semantic-search")
+def semantic_search(
+        q: str = Query(
+            ...,
+            min_length=3,
+            description="Consulta em linguagem natural",
+        ),
+        limit: int = Query(
+            5,
+            ge=1,
+            le=20,
+            description="Quantidade máxima de resultados",
+        ),
+        db: Session = Depends(get_db),
+):
+    repository = PropertyEmbeddingRepository(db)
+
+    embedding_service = EmbeddingService()
+
+    service = PropertySemanticSearchService(
+        embedding_service=embedding_service,
+        repository=repository,
+    )
+
+    results = service.search(
+        query=q,
+        limit=limit,
+    )
+
+    return [
+        {
+            "id": result.property.id,
+            "external_id": result.property.external_id,
+            "title": result.property.title,
+            "description": result.property.description,
+            "neighborhood": result.property.neighborhood,
+            "usable_area": result.property.usable_area,
+            "bedrooms": result.property.bedrooms,
+            "bathrooms": result.property.bathrooms,
+            "parking_spaces": result.property.parking_spaces,
+            "price": result.property.price,
+            "similarity_score": round(
+                similarity_score,
+                4,
+            ),
+        }
+        for result, similarity_score in results
+    ]

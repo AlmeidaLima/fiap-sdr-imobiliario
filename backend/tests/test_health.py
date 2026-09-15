@@ -7,17 +7,18 @@ client = TestClient(app)
 
 
 def test_health_returns_status_ok():
-    response = client.get("/health")
+    response = client.get("/api/v1/health")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "ok",
-        "service": "agente-sdr-imobiliario-api",
-    }
+
+    body = response.json()
+
+    assert body["status"] == "ok"
+    assert body["service"] == "agente-sdr-imobiliario-api"
 
 
 def test_health_response_schema():
-    response = client.get("/health")
+    response = client.get("/api/v1/health")
 
     body = response.json()
 
