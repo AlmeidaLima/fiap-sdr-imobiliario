@@ -366,6 +366,144 @@ Isso permite que o agente pesquise imóveis utilizando linguagem natural, sem de
 
 ---
 
+### Missão 06 — Busca híbrida de imóveis
+
+**Status: Concluída**
+
+A Missão 06 evoluiu a recuperação de imóveis combinando a busca semântica da Missão 05 com filtros estruturados determinísticos.
+
+A estratégia permite utilizar linguagem natural para representar preferências subjetivas do lead, mantendo restrições objetivas como bairro, preço, quartos e área útil como filtros obrigatórios.
+
+#### Definition of Done
+
+- [x] Busca semântica da Missão 05 reutilizada
+- [x] `PropertyEmbeddingRepository` evoluído para busca com filtros estruturados
+- [x] Filtro por bairro
+- [x] Filtro por preço mínimo
+- [x] Filtro por preço máximo
+- [x] Filtro por quantidade mínima de quartos
+- [x] Filtro por quantidade mínima de banheiros
+- [x] Filtro por quantidade mínima de vagas
+- [x] Filtro por área útil mínima
+- [x] Filtro por disponibilidade
+- [x] Ranking por similaridade vetorial preservado
+- [x] `PropertyHybridSearchService` implementado
+- [x] Schema `PropertySearchResponse` implementado
+- [x] Endpoint `GET /api/v1/properties/hybrid-search` implementado
+- [x] Parâmetro `q` obrigatório e validado
+- [x] Parâmetro `limit` validado entre 1 e 20
+- [x] Validações de filtros numéricos implementadas
+- [x] Handler de validação ajustado para serialização de valores como `Decimal`
+- [x] Teste do repository da busca híbrida
+- [x] Teste do service da busca híbrida
+- [x] Testes da API da busca híbrida
+- [x] Busca híbrida validada contra a base real
+- [x] Filtros objetivos validados em conjunto com o ranking semântico
+- [x] Alteração da consulta textual validada com mudança do ranking
+- [x] Base com 18.760 imóveis e 18.760 embeddings disponível para consulta
+- [x] Regressão completa executada
+- [x] 34 testes automatizados passando
+
+#### Endpoint de busca híbrida
+
+```text
+GET /api/v1/properties/hybrid-search
+```
+
+Exemplo conceitual:
+
+```text
+GET /api/v1/properties/hybrid-search?q=apartamento para família com academia e churrasqueira&neighborhood=Boa Vista&max_price=700000&min_bedrooms=3&min_usable_area=70&limit=5
+```
+
+A consulta combina dois tipos de critérios:
+
+```text
+Preferências semânticas             Restrições estruturadas
+"para família"                     bairro = Boa Vista
+"academia"                         preço <= 700000
+"churrasqueira"                    quartos >= 3
+                                    área útil >= 70 m²
+```
+
+Somente imóveis que atendem aos filtros estruturados participam do resultado, e esses candidatos são ordenados por similaridade semântica.
+
+#### Validação com a base real
+
+A primeira consulta validada foi:
+
+```text
+apartamento para família com academia e churrasqueira
+```
+
+com os filtros:
+
+```text
+Bairro: Boa Vista
+Preço máximo: R$ 700.000
+Quartos: mínimo 3
+Área útil: mínimo 70 m²
+```
+
+Top 5 obtido:
+
+```text
+4397
+5703
+4270
+850
+440
+```
+
+Mantendo os mesmos filtros e alterando somente a consulta para:
+
+```text
+apartamento tranquilo próximo a transporte público
+```
+
+o Top 5 passou a ser:
+
+```text
+4397
+6611
+2302
+7094
+8997
+```
+
+Quatro dos cinco imóveis do Top 5 foram alterados, enquanto os filtros estruturados continuaram sendo respeitados. Isso evidencia que a intenção textual influencia o ranking semântico sem flexibilizar as restrições objetivas.
+
+#### Arquitetura da busca híbrida
+
+```text
+Consulta do lead
+      │
+      ├── linguagem natural ──> EmbeddingService
+      │                              │
+      │                              ▼
+      │                        vetor da consulta
+      │
+      └── filtros objetivos ──> filtros SQL/SQLAlchemy
+                                     │
+                    ┌────────────────┘
+                    ▼
+          PropertyHybridSearchService
+                    │
+                    ▼
+        PropertyEmbeddingRepository
+                    │
+                    ▼
+           PostgreSQL + pgvector
+                    │
+                    ▼
+        candidatos que cumprem filtros
+                    │
+                    ▼
+          ranking por similaridade
+```
+
+---
+
 ## Modelo de embeddings
 
 O modelo selecionado para geração dos embeddings foi:
@@ -777,7 +915,7 @@ condomínio com estrutura
 próximo a comércio
 ```
 
-A evolução do projeto poderá combinar essas estratégias:
+A Missão 06 passou a combinar essas estratégias por meio da busca híbrida:
 
 ```text
 Consulta do usuário
@@ -794,7 +932,7 @@ Filtros estruturados   Busca semântica
            Ranking final
 ```
 
-Essa abordagem prepara a aplicação para uma futura estratégia de busca híbrida utilizada pelo agente SDR.
+Essa abordagem foi implementada na Missão 06 por meio do endpoint de busca híbrida, preservando filtros determinísticos e utilizando similaridade vetorial para o ranking final.
 
 ---
 
@@ -825,9 +963,12 @@ PropertyEmbeddingRepository
 busca vetorial real
 PropertySemanticSearchService
 endpoint de busca semântica
+busca híbrida
+PropertyHybridSearchService
+endpoint de busca híbrida
 ```
 
-### Testes adicionados na Missão 05
+### Testes adicionados nas Missões 05 e 06
 
 ```text
 test_embedding_service.py
@@ -836,6 +977,9 @@ test_property_embedding_repository.py
 test_property_embedding_search.py
 test_property_semantic_search_api.py
 test_property_semantic_search_service.py
+test_property_hybrid_search_repository.py
+test_property_hybrid_search_service.py
+test_property_hybrid_search_api.py
 ```
 
 O teste específico da API semântica valida:
@@ -850,10 +994,10 @@ limit
 limite máximo permitido
 ```
 
-Após a inclusão dos testes da API semântica, a suíte completa possui:
+Após a conclusão da Missão 06, a suíte completa possui:
 
 ```text
-27 testes
+34 testes
 ```
 
 A regressão final da missão deve permanecer integralmente verde antes do fechamento do commit.
@@ -954,6 +1098,7 @@ fiap-sdr-imobiliario/
 │   │   │   ├── embedding_service.py
 │   │   │   ├── property_document_service.py
 │   │   │   ├── property_semantic_search_service.py
+│   │   │   ├── property_hybrid_search_service.py
 │   │   │   └── property_service.py
 │   │   │
 │   │   └── tools/
@@ -979,6 +1124,9 @@ fiap-sdr-imobiliario/
 │   │   ├── test_property_repository.py
 │   │   ├── test_property_semantic_search_api.py
 │   │   ├── test_property_semantic_search_service.py
+│   │   ├── test_property_hybrid_search_repository.py
+│   │   ├── test_property_hybrid_search_service.py
+│   │   ├── test_property_hybrid_search_api.py
 │   │   ├── test_property_service.py
 │   │   └── test_validation_handler.py
 │   │
@@ -1166,6 +1314,12 @@ Busca semântica:
 GET /api/v1/properties/semantic-search
 ```
 
+Busca híbrida:
+
+```text
+GET /api/v1/properties/hybrid-search
+```
+
 ---
 
 ### 9. Executar os testes
@@ -1179,54 +1333,49 @@ docker compose exec backend python -m pytest -v
 ## Arquitetura atual
 
 ```text
-                   ┌───────────────────┐
-                   │     Frontend      │
-                   │      Next.js      │
-                   └─────────┬─────────┘
-                             │
-                             ▼
-                   ┌───────────────────┐
-                   │      FastAPI      │
-                   │    /api/v1/*      │
-                   └─────────┬─────────┘
-                             │
-            ┌────────────────┴────────────────┐
-            │                                 │
-            ▼                                 ▼
- ┌─────────────────────┐          ┌─────────────────────────┐
- │ Consulta estruturada│          │    Busca semântica      │
- │ PropertyService     │          │ SemanticSearchService   │
- └──────────┬──────────┘          └────────────┬────────────┘
-            │                                  │
-            ▼                                  ▼
- ┌─────────────────────┐          ┌─────────────────────────┐
- │ PropertyRepository  │          │ EmbeddingService        │
- └──────────┬──────────┘          │ multilingual-e5-small   │
-            │                     └────────────┬────────────┘
-            │                                  │
-            │                                  ▼
-            │                     ┌─────────────────────────┐
-            │                     │ PropertyEmbeddingRepo   │
-            │                     └────────────┬────────────┘
-            │                                  │
-            └──────────────────┬───────────────┘
-                               ▼
-                    ┌───────────────────────┐
-                    │ PostgreSQL + pgvector │
-                    │ properties            │
-                    │ property_embeddings   │
-                    └───────────────────────┘
+                         ┌───────────────────┐
+                         │     Frontend      │
+                         │      Next.js      │
+                         └─────────┬─────────┘
+                                   │
+                                   ▼
+                         ┌───────────────────┐
+                         │      FastAPI      │
+                         │    /api/v1/*      │
+                         └─────────┬─────────┘
+                                   │
+             ┌─────────────────────┼─────────────────────┐
+             │                     │                     │
+             ▼                     ▼                     ▼
+   Consulta estruturada     Busca semântica        Busca híbrida
+    PropertyService      SemanticSearchService   HybridSearchService
+             │                     │                     │
+             ▼                     ▼                     ▼
+   PropertyRepository      EmbeddingService       EmbeddingService
+                                  │                     │
+                                  └──────────┬──────────┘
+                                             ▼
+                              PropertyEmbeddingRepository
+                                             │
+             ┌───────────────────────────────┴──────────────┐
+             ▼                                              ▼
+        filtros SQL                               similaridade vetorial
+             │                                              │
+             └──────────────────────┬───────────────────────┘
+                                    ▼
+                          PostgreSQL + pgvector
+                          properties
+                          property_embeddings
 ```
 
 ---
 
 ## Próximas evoluções
 
-Com a base imobiliária estruturada e a busca semântica implementada, o projeto está preparado para evoluir para as próximas etapas do agente SDR.
+Com a base imobiliária estruturada, a busca semântica e a busca híbrida implementadas, o projeto está preparado para evoluir para as próximas etapas do agente SDR.
 
 Entre as evoluções previstas estão:
 
-- busca híbrida combinando filtros estruturados e similaridade semântica;
 - recuperação de contexto imobiliário;
 - camada RAG;
 - integração com modelo de linguagem local;
@@ -1272,4 +1421,4 @@ LLM
 Resposta ao lead
 ```
 
-A Missão 05 estabelece a camada vetorial necessária para que as próximas etapas do agente possam recuperar imóveis utilizando o significado da solicitação do usuário, e não apenas filtros ou correspondências exatas.
+As Missões 05 e 06 estabelecem a camada de recuperação imobiliária do agente: a Missão 05 adiciona a representação vetorial e a busca por significado, enquanto a Missão 06 combina essa capacidade com filtros estruturados para formar a busca híbrida.

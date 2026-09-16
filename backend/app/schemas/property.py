@@ -52,3 +52,20 @@ class PropertyResponse(PropertyBase):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+class PropertySearchResponse(BaseModel):
+    id: int
+    external_id: str
+
+    title: str | None = None
+    description: str | None = None
+
+    neighborhood: str
+    usable_area: int
+    bedrooms: int
+    bathrooms: int
+    parking_spaces: int | None = None
+
+    price: Decimal
+
+    similarity_score: float
