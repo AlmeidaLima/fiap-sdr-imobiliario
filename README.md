@@ -504,6 +504,124 @@ Consulta do lead
 
 ---
 
+### Missão 07 — Interpretação da intenção e busca em linguagem natural
+
+**Status: Concluída**
+
+A Missão 07 adicionou uma camada de interpretação determinística da mensagem do lead. Agora o consumidor pode enviar uma frase em linguagem natural, e o backend extrai automaticamente os critérios estruturados antes de delegar a recuperação para a busca híbrida da Missão 06.
+
+A implementação atual utiliza regras e expressões regulares, mantendo a interpretação desacoplada da busca. Isso prepara a arquitetura para substituir ou complementar o parser por um LLM no futuro sem alterar a camada de recuperação imobiliária.
+
+#### Definition of Done
+
+- [x] Schema `PropertySearchIntent` implementado
+- [x] Contrato HTTP `PropertyNaturalLanguageSearchRequest` implementado
+- [x] Campos não informados tratados como `None`
+- [x] Validação de valores por Pydantic
+- [x] `PropertySearchIntentService` implementado
+- [x] Normalização básica da mensagem
+- [x] Extração de bairro
+- [x] Extração de preço máximo
+- [x] Suporte a preço no formato `700 mil`
+- [x] Suporte a preço no formato `R$ 650.000`
+- [x] Extração de quantidade mínima de quartos
+- [x] Extração de quantidade mínima de banheiros
+- [x] Extração de quantidade mínima de vagas
+- [x] Extração de área útil mínima
+- [x] Preferências subjetivas preservadas em `semantic_query`
+- [x] `PropertyNaturalLanguageSearchService` implementado
+- [x] Integração entre interpretação da intenção e `PropertyHybridSearchService`
+- [x] Endpoint `POST /api/v1/properties/natural-language-search` implementado
+- [x] `message` obrigatório e com tamanho mínimo validado
+- [x] `limit` validado entre 1 e 20
+- [x] `limit=5` utilizado como padrão
+- [x] Testes automatizados do schema de intenção
+- [x] Testes automatizados do interpretador
+- [x] Teste da orquestração entre intenção e busca híbrida
+- [x] Testes automatizados do endpoint de linguagem natural
+- [x] Teste ponta a ponta executado contra a base real
+- [x] Extração do parser validada diretamente
+- [x] Base com 18.760 imóveis e 18.760 embeddings utilizada na validação
+- [x] Regressão completa executada
+- [x] 48 testes automatizados passando
+
+#### Endpoint de busca em linguagem natural
+
+```text
+POST /api/v1/properties/natural-language-search
+```
+
+Exemplo de requisição:
+
+```json
+{
+  "message": "Quero um apartamento no Boa Vista com 3 quartos, pelo menos 70 m², até 700 mil. Gostaria de academia e churrasqueira.",
+  "limit": 5
+}
+```
+
+O parser transforma a mensagem em uma intenção estruturada equivalente a:
+
+```text
+neighborhood        = Boa Vista
+max_price           = 700000
+min_bedrooms        = 3
+min_usable_area     = 70
+min_price           = null
+min_bathrooms       = null
+min_parking_spaces  = null
+semantic_query      = mensagem do lead
+```
+
+#### Validação ponta a ponta
+
+A mensagem acima retornou cinco imóveis reais, todos respeitando simultaneamente os filtros extraídos:
+
+```text
+ID     Bairro       Preço       Quartos   Área    Similaridade
+8774   Boa Vista    279.990       3        73       0,8820
+5703   Boa Vista    671.955       3        85       0,8730
+4919   Boa Vista    575.910       3        88       0,8700
+7094   Boa Vista    475.900       3        71       0,8700
+545    Boa Vista    699.000       3        87       0,8696
+```
+
+O teste comprovou o fluxo completo:
+
+```text
+Mensagem do lead
+        │
+        ▼
+PropertySearchIntentService
+        │
+        ▼
+PropertySearchIntent
+        │
+        ├── filtros objetivos
+        │   bairro / preço / quartos / área
+        │
+        └── semantic_query
+                 │
+                 ▼
+PropertyNaturalLanguageSearchService
+                 │
+                 ▼
+PropertyHybridSearchService
+                 │
+        ┌────────┴────────┐
+        ▼                 ▼
+   filtros SQL        embedding
+        │                 │
+        └────────┬────────┘
+                 ▼
+       PostgreSQL + pgvector
+                 │
+                 ▼
+          imóveis relevantes
+```
+
+---
+
 ## Modelo de embeddings
 
 O modelo selecionado para geração dos embeddings foi:
@@ -966,9 +1084,13 @@ endpoint de busca semântica
 busca híbrida
 PropertyHybridSearchService
 endpoint de busca híbrida
+interpretação estruturada da intenção do lead
+PropertySearchIntentService
+PropertyNaturalLanguageSearchService
+endpoint de busca em linguagem natural
 ```
 
-### Testes adicionados nas Missões 05 e 06
+### Testes adicionados nas Missões 05, 06 e 07
 
 ```text
 test_embedding_service.py
@@ -980,6 +1102,10 @@ test_property_semantic_search_service.py
 test_property_hybrid_search_repository.py
 test_property_hybrid_search_service.py
 test_property_hybrid_search_api.py
+test_property_search_intent.py
+test_property_search_intent_service.py
+test_property_natural_language_search_service.py
+test_property_natural_language_search_api.py
 ```
 
 O teste específico da API semântica valida:
@@ -994,10 +1120,10 @@ limit
 limite máximo permitido
 ```
 
-Após a conclusão da Missão 06, a suíte completa possui:
+Após a conclusão da Missão 07, a suíte completa possui:
 
 ```text
-34 testes
+48 testes
 ```
 
 A regressão final da missão deve permanecer integralmente verde antes do fechamento do commit.
@@ -1092,13 +1218,16 @@ fiap-sdr-imobiliario/
 │   │   │   ├── error.py
 │   │   │   ├── health.py
 │   │   │   ├── info.py
-│   │   │   └── property.py
+│   │   │   ├── property.py
+│   │   │   └── property_search_intent.py
 │   │   │
 │   │   ├── services/
 │   │   │   ├── embedding_service.py
 │   │   │   ├── property_document_service.py
 │   │   │   ├── property_semantic_search_service.py
 │   │   │   ├── property_hybrid_search_service.py
+│   │   │   ├── property_search_intent_service.py
+│   │   │   ├── property_natural_language_search_service.py
 │   │   │   └── property_service.py
 │   │   │
 │   │   └── tools/
@@ -1127,6 +1256,10 @@ fiap-sdr-imobiliario/
 │   │   ├── test_property_hybrid_search_repository.py
 │   │   ├── test_property_hybrid_search_service.py
 │   │   ├── test_property_hybrid_search_api.py
+│   │   ├── test_property_search_intent.py
+│   │   ├── test_property_search_intent_service.py
+│   │   ├── test_property_natural_language_search_service.py
+│   │   ├── test_property_natural_language_search_api.py
 │   │   ├── test_property_service.py
 │   │   └── test_validation_handler.py
 │   │
@@ -1344,42 +1477,46 @@ docker compose exec backend python -m pytest -v
                          │    /api/v1/*      │
                          └─────────┬─────────┘
                                    │
-             ┌─────────────────────┼─────────────────────┐
-             │                     │                     │
-             ▼                     ▼                     ▼
-   Consulta estruturada     Busca semântica        Busca híbrida
-    PropertyService      SemanticSearchService   HybridSearchService
-             │                     │                     │
-             ▼                     ▼                     ▼
-   PropertyRepository      EmbeddingService       EmbeddingService
-                                  │                     │
-                                  └──────────┬──────────┘
-                                             ▼
-                              PropertyEmbeddingRepository
-                                             │
-             ┌───────────────────────────────┴──────────────┐
-             ▼                                              ▼
-        filtros SQL                               similaridade vetorial
-             │                                              │
-             └──────────────────────┬───────────────────────┘
-                                    ▼
-                          PostgreSQL + pgvector
-                          properties
-                          property_embeddings
+              ┌────────────────────┼────────────────────┐
+              │                    │                    │
+              ▼                    ▼                    ▼
+       Busca estruturada     Busca híbrida       Linguagem natural
+       PropertyService    HybridSearchService    IntentService
+              │                    │                    │
+              │                    │                    ▼
+              │                    │       PropertySearchIntent
+              │                    │                    │
+              │                    │                    ▼
+              │                    │     NaturalLanguageSearchService
+              │                    │                    │
+              │                    ◄────────────────────┘
+              │                    │
+              ▼                    ▼
+     PropertyRepository    EmbeddingService
+                                   │
+                                   ▼
+                       PropertyEmbeddingRepository
+                                   │
+                         ┌─────────┴─────────┐
+                         ▼                   ▼
+                    filtros SQL      similaridade vetorial
+                         │                   │
+                         └─────────┬─────────┘
+                                   ▼
+                         PostgreSQL + pgvector
 ```
 
 ---
 
 ## Próximas evoluções
 
-Com a base imobiliária estruturada, a busca semântica e a busca híbrida implementadas, o projeto está preparado para evoluir para as próximas etapas do agente SDR.
+Com a base imobiliária estruturada, a busca híbrida e a interpretação determinística da intenção implementadas, o projeto está preparado para evoluir para as próximas etapas do agente SDR.
 
 Entre as evoluções previstas estão:
 
 - recuperação de contexto imobiliário;
 - camada RAG;
 - integração com modelo de linguagem local;
-- interpretação automática dos requisitos do lead;
 - memória/contexto de conversação;
 - qualificação de leads;
 - orquestração do agente;
@@ -1397,17 +1534,21 @@ A evolução esperada do projeto é:
 Lead
  │
  ▼
-Agente SDR
+Mensagem em linguagem natural
  │
  ▼
 Interpretação da necessidade
  │
  ├───────────────┐
  ▼               ▼
-Filtros          Busca semântica
-estruturados     pgvector
+Filtros          Preferências semânticas
+estruturados     / embedding
  │               │
  └───────┬───────┘
+         ▼
+Busca híbrida
+PostgreSQL + pgvector
+         │
          ▼
 Imóveis candidatos
          │
@@ -1415,10 +1556,12 @@ Imóveis candidatos
 RAG / contexto
          │
          ▼
-LLM
+LLM / Agente SDR
          │
          ▼
 Resposta ao lead
 ```
 
-As Missões 05 e 06 estabelecem a camada de recuperação imobiliária do agente: a Missão 05 adiciona a representação vetorial e a busca por significado, enquanto a Missão 06 combina essa capacidade com filtros estruturados para formar a busca híbrida.
+As Missões 05, 06 e 07 estabelecem a camada de recuperação e interpretação inicial do agente. A Missão 05 adiciona a representação vetorial e a busca por significado; a Missão 06 combina similaridade com filtros estruturados; e a Missão 07 permite que uma mensagem natural do lead seja convertida automaticamente em uma intenção tipada e encaminhada à busca híbrida.
+
+A interpretação da Missão 07 é atualmente determinística, baseada em regras e expressões regulares. A arquitetura mantém essa responsabilidade desacoplada para permitir futura integração com um LLM sem alterar a camada de recuperação de imóveis.

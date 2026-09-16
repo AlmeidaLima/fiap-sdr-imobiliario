@@ -12,15 +12,23 @@ from app.schemas.property import (
     PropertyResponse,
     PropertySearchResponse,
 )
+from app.schemas.property_search_intent import (
+    PropertyNaturalLanguageSearchRequest,
+)
 from app.services.embedding_service import EmbeddingService
 from app.services.property_hybrid_search_service import (
     PropertyHybridSearchService,
+)
+from app.services.property_natural_language_search_service import (
+    PropertyNaturalLanguageSearchService,
+)
+from app.services.property_search_intent_service import (
+    PropertySearchIntentService,
 )
 from app.services.property_semantic_search_service import (
     PropertySemanticSearchService,
 )
 from app.services.property_service import PropertyService
-
 
 router = APIRouter(
     prefix="/properties",
@@ -240,4 +248,52 @@ def hybrid_search(
             ),
         )
         for property_embedding, similarity_score in results
+    ]
+
+@router.post("/natural-language-search")
+def natural_language_search(
+        request: PropertyNaturalLanguageSearchRequest,
+        db: Session = Depends(get_db),
+):
+    repository = PropertyEmbeddingRepository(db)
+
+    embedding_service = EmbeddingService()
+
+    hybrid_search_service = PropertyHybridSearchService(
+        embedding_service=embedding_service,
+        repository=repository,
+    )
+
+    intent_service = PropertySearchIntentService()
+
+    service = PropertyNaturalLanguageSearchService(
+        intent_service=intent_service,
+        hybrid_search_service=hybrid_search_service,
+    )
+
+    results = service.search(
+        message=request.message,
+        limit=request.limit,
+    )
+
+    return [
+        {
+            "id": result.property.id,
+            "external_id": result.property.external_id,
+            "title": result.property.title,
+            "description": result.property.description,
+            "neighborhood": result.property.neighborhood,
+            "usable_area": result.property.usable_area,
+            "bedrooms": result.property.bedrooms,
+            "bathrooms": result.property.bathrooms,
+            "parking_spaces": (
+                result.property.parking_spaces
+            ),
+            "price": result.property.price,
+            "similarity_score": round(
+                similarity_score,
+                4,
+            ),
+        }
+        for result, similarity_score in results
     ]
