@@ -622,6 +622,139 @@ PropertyHybridSearchService
 
 ---
 
+### Missão 08 — Estado de conversa e qualificação mínima do lead
+
+**Status: Concluída**
+
+A Missão 08 adicionou continuidade conversacional ao backend. O agente passa a acumular os critérios informados pelo lead ao longo de vários turnos, preservar informações anteriores, substituir critérios alterados e identificar quais dados ainda faltam para iniciar a busca de imóveis.
+
+Nesta etapa, a qualificação é determinística e representa a **qualificação mínima para busca de imóveis**. A conversa é considerada pronta para busca quando possui bairro, preço máximo e quantidade mínima de quartos. A qualificação comercial completa do SDR, incluindo intenção de compra/aluguel/investimento, urgência, lead score e persistência do lead, permanece como evolução posterior.
+
+#### Definition of Done
+
+- [x] `ConversationState` implementado
+- [x] Identificação da conversa por `conversation_id`
+- [x] Estado acumulado entre múltiplos turnos
+- [x] Preservação dos critérios informados anteriormente
+- [x] Sobrescrita de critérios quando o lead altera uma preferência
+- [x] Acúmulo de preferências semânticas
+- [x] Integração com `PropertySearchIntentService`
+- [x] Proteção para não interpretar a expressão `na verdade` como bairro
+- [x] `ConversationQualificationService` implementado
+- [x] Identificação dos campos obrigatórios ainda ausentes
+- [x] Geração determinística da próxima pergunta
+- [x] Busca de imóveis bloqueada enquanto a conversa não estiver qualificada
+- [x] `ConversationPropertySearchService` implementado
+- [x] Integração da conversa qualificada com `PropertyHybridSearchService`
+- [x] Endpoint `POST /api/v1/conversations/turn` implementado
+- [x] Testes unitários de estado, merge, fluxo e qualificação
+- [x] Testes da integração conversa → busca híbrida
+- [x] Teste de API em múltiplos turnos
+- [x] Teste ponta a ponta utilizando PostgreSQL + pgvector e a base real
+- [x] Validação dos imóveis retornados contra bairro, preço e quartos acumulados
+- [x] Regressão completa executada
+- [x] 69 testes automatizados passando
+
+#### Endpoint conversacional
+
+```text
+POST /api/v1/conversations/turn
+```
+
+Exemplo de evolução da conversa:
+
+```text
+Turno 1
+Lead: Quero um apartamento no Boa Vista
+
+Estado:
+neighborhood = Boa Vista
+max_price = null
+min_bedrooms = null
+
+Próxima pergunta:
+Qual é o valor máximo que você pretende investir no imóvel?
+
+Turno 2
+Lead: Até 700 mil
+
+Estado acumulado:
+neighborhood = Boa Vista
+max_price = 700000
+min_bedrooms = null
+
+Próxima pergunta:
+Quantos quartos você procura?
+
+Turno 3
+Lead: Quero pelo menos 3 quartos
+
+Estado acumulado:
+neighborhood = Boa Vista
+max_price = 700000
+min_bedrooms = 3
+qualified = true
+```
+
+Quando a qualificação mínima é atingida, o fluxo executa a busca híbrida e retorna imóveis compatíveis com os critérios acumulados.
+
+#### Fluxo implementado
+
+```text
+Mensagem do lead
+       │
+       ▼
+PropertySearchIntentService
+       │
+       ▼
+ConversationService
+       │
+       ├── atualiza ConversationState
+       │
+       ▼
+ConversationQualificationService
+       │
+       ├── não qualificado ──> próxima pergunta
+       │
+       └── qualificado
+              │
+              ▼
+ConversationPropertySearchService
+              │
+              ▼
+PropertyHybridSearchService
+              │
+       ┌──────┴──────┐
+       ▼             ▼
+ filtros SQL      embedding
+       │             │
+       └──────┬──────┘
+              ▼
+     PostgreSQL + pgvector
+              │
+              ▼
+       imóveis compatíveis
+```
+
+#### Estado conversacional atual
+
+O estado suporta os seguintes critérios:
+
+```text
+conversation_id
+neighborhood
+min_price
+max_price
+min_bedrooms
+min_bathrooms
+min_parking_spaces
+min_usable_area
+semantic_preferences
+```
+
+Nesta versão, o estado é devolvido pela API e reenviado pelo cliente no turno seguinte. A persistência e recuperação automática do estado por `conversation_id` ainda não fazem parte desta missão.
+
+
 ## Modelo de embeddings
 
 O modelo selecionado para geração dos embeddings foi:
@@ -1120,10 +1253,10 @@ limit
 limite máximo permitido
 ```
 
-Após a conclusão da Missão 07, a suíte completa possui:
+Após a conclusão da Missão 08, a suíte completa possui:
 
 ```text
-48 testes
+69 testes
 ```
 
 A regressão final da missão deve permanecer integralmente verde antes do fechamento do commit.
@@ -1190,7 +1323,8 @@ fiap-sdr-imobiliario/
 │   │   │   └── routes/
 │   │   │       ├── health.py
 │   │   │       ├── info.py
-│   │   │       └── properties.py
+│   │   │       ├── properties.py
+│   │   │       └── conversations.py
 │   │   │
 │   │   ├── core/
 │   │   │   ├── config.py
@@ -1219,7 +1353,8 @@ fiap-sdr-imobiliario/
 │   │   │   ├── health.py
 │   │   │   ├── info.py
 │   │   │   ├── property.py
-│   │   │   └── property_search_intent.py
+│   │   │   ├── property_search_intent.py
+│   │   │   └── conversation.py
 │   │   │
 │   │   ├── services/
 │   │   │   ├── embedding_service.py
@@ -1228,6 +1363,9 @@ fiap-sdr-imobiliario/
 │   │   │   ├── property_hybrid_search_service.py
 │   │   │   ├── property_search_intent_service.py
 │   │   │   ├── property_natural_language_search_service.py
+│   │   │   ├── conversation_service.py
+│   │   │   ├── conversation_qualification_service.py
+│   │   │   ├── conversation_property_search_service.py
 │   │   │   └── property_service.py
 │   │   │
 │   │   └── tools/
@@ -1260,6 +1398,14 @@ fiap-sdr-imobiliario/
 │   │   ├── test_property_search_intent_service.py
 │   │   ├── test_property_natural_language_search_service.py
 │   │   ├── test_property_natural_language_search_api.py
+│   │   ├── test_conversation_state.py
+│   │   ├── test_conversation_service.py
+│   │   ├── test_conversation_flow.py
+│   │   ├── test_conversation_qualification_service.py
+│   │   ├── test_conversation_turn.py
+│   │   ├── test_conversation_property_search_service.py
+│   │   ├── test_conversation_search_flow.py
+│   │   ├── test_conversation_api.py
 │   │   ├── test_property_service.py
 │   │   └── test_validation_handler.py
 │   │
@@ -1517,8 +1663,8 @@ Entre as evoluções previstas estão:
 - recuperação de contexto imobiliário;
 - camada RAG;
 - integração com modelo de linguagem local;
-- memória/contexto de conversação;
-- qualificação de leads;
+- persistência do estado conversacional por `conversation_id`;
+- qualificação comercial completa de leads e lead score;
 - orquestração do agente;
 - integração com canais de atendimento;
 - guardrails;
@@ -1565,3 +1711,5 @@ Resposta ao lead
 As Missões 05, 06 e 07 estabelecem a camada de recuperação e interpretação inicial do agente. A Missão 05 adiciona a representação vetorial e a busca por significado; a Missão 06 combina similaridade com filtros estruturados; e a Missão 07 permite que uma mensagem natural do lead seja convertida automaticamente em uma intenção tipada e encaminhada à busca híbrida.
 
 A interpretação da Missão 07 é atualmente determinística, baseada em regras e expressões regulares. A arquitetura mantém essa responsabilidade desacoplada para permitir futura integração com um LLM sem alterar a camada de recuperação de imóveis.
+
+A Missão 08 acrescenta a camada de estado e decisão conversacional: os critérios podem ser coletados em vários turnos, a aplicação identifica o que ainda falta e somente aciona a recuperação imobiliária quando existe informação mínima suficiente para a busca.
