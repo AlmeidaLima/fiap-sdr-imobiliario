@@ -56,9 +56,36 @@ class PropertySearchIntentService:
             message: str,
     ) -> str | None:
 
+        if re.search(
+                r"\bna\s+verdade\b",
+                message,
+                flags=re.IGNORECASE,
+        ):
+            message = re.sub(
+                r"\bna\s+verdade\b",
+                "",
+                message,
+                flags=re.IGNORECASE,
+            ).strip()
+
         patterns = [
-            r"\bno\s+([a-záàâãéêíóôõúç ]+?)(?=\s+com\b)",
-            r"\bna\s+([a-záàâãéêíóôõúç ]+?)(?=\s+com\b)",
+            # Ex.: "no Boa Vista com 3 quartos"
+            r"\b(?:no|na)\s+([a-záàâãéêíóôõúç ]+?)(?=\s+com\b)",
+
+            # Ex.: "no Boa Vista até 700 mil"
+            r"\b(?:no|na)\s+([a-záàâãéêíóôõúç ]+?)(?=\s+(?:até|ate)\b)",
+
+            # Ex.: "no Boa Vista"
+            r"\b(?:no|na)\s+([a-záàâãéêíóôõúç ]+?)$",
+
+            # Ex.: "em Boa Vista com 3 quartos"
+            r"\bem\s+([a-záàâãéêíóôõúç ]+?)(?=\s+com\b)",
+
+            # Ex.: "em Boa Vista até 700 mil"
+            r"\bem\s+([a-záàâãéêíóôõúç ]+?)(?=\s+(?:até|ate)\b)",
+
+            # Ex.: "em Boa Vista"
+            r"\bem\s+([a-záàâãéêíóôõúç ]+?)$",
         ]
 
         for pattern in patterns:
@@ -177,3 +204,13 @@ class PropertySearchIntentService:
                 return int(match.group(1))
 
         return None
+
+def test_parse_does_not_interpret_na_verdade_as_neighborhood():
+    service = PropertySearchIntentService()
+
+    intent = service.parse(
+        "Na verdade pode ser até 800 mil"
+    )
+
+    assert intent.neighborhood is None
+    assert intent.max_price == Decimal("800000")
