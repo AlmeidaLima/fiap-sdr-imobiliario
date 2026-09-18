@@ -1,10 +1,14 @@
 from decimal import Decimal
-from app.schemas.property import PropertySearchResponse
+
 from pydantic import BaseModel, Field
+
+from app.schemas.property import PropertySearchResponse
 
 
 class ConversationState(BaseModel):
     conversation_id: str
+
+    lead_name: str | None = None
 
     neighborhood: str | None = None
 
@@ -42,19 +46,26 @@ class ConversationState(BaseModel):
         default_factory=list,
     )
 
+
 class ConversationQualification(BaseModel):
     qualified: bool
+
     missing_fields: list[str] = Field(
         default_factory=list,
     )
+
     next_question: str | None = None
+
 
 class ConversationTurnResult(BaseModel):
     state: ConversationState
+
     qualification: ConversationQualification
+
     properties: list = Field(
         default_factory=list,
     )
+
 
 class ConversationTurnRequest(BaseModel):
     conversation_id: str = Field(
@@ -78,8 +89,11 @@ class ConversationTurnRequest(BaseModel):
 
 class ConversationTurnResponse(BaseModel):
     conversation_id: str
+
     state: ConversationState
+
     qualification: ConversationQualification
+
     properties: list[PropertySearchResponse] = Field(
         default_factory=list,
     )

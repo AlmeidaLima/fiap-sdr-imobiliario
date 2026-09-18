@@ -1,6 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.database.conversation_repository import (
+    ConversationRepository,
+)
+from app.database.lead_repository import (
+    LeadRepository,
+)
+from app.database.message_repository import (
+    MessageRepository,
+)
 from app.database.property_embedding_repository import (
     PropertyEmbeddingRepository,
 )
@@ -11,6 +20,9 @@ from app.schemas.conversation import (
     ConversationTurnResponse,
 )
 from app.schemas.property import PropertySearchResponse
+from app.services.conversation_persistence_service import (
+    ConversationPersistenceService,
+)
 from app.services.conversation_property_search_service import (
     ConversationPropertySearchService,
 )
@@ -43,20 +55,43 @@ def process_conversation_turn(
     Processa um turno da conversa do SDR imobiliário.
 
     Fluxo:
-    - recupera o estado enviado pelo cliente;
+    - recupera ou cria a conversa pelo conversation_id;
+    - recupera o estado persistido no PostgreSQL;
+    - persiste a mensagem enviada pelo usuário;
     - interpreta a nova mensagem;
+    - identifica o nome do lead;
+    - cria e associa o lead quando necessário;
     - acumula os critérios;
     - avalia a qualificação;
     - quando qualificado, executa busca híbrida;
+    - persiste o novo estado;
     - retorna estado, qualificação e imóveis.
     """
 
-    state = request.state
+    conversation_repository = ConversationRepository(db)
+    message_repository = MessageRepository(db)
+    lead_repository = LeadRepository(db)
 
-    if state is None:
-        state = ConversationState(
-            conversation_id=request.conversation_id,
-        )
+    persistence_service = ConversationPersistenceService(
+        conversation_repository=conversation_repository,
+        message_repository=message_repository,
+        lead_repository=lead_repository,
+    )
+
+    persisted_conversation = persistence_service.get_or_create(
+        request.conversation_id
+    )
+
+    state = ConversationState(
+        conversation_id=request.conversation_id,
+        **persisted_conversation.state,
+    )
+
+    persistence_service.save_message(
+        conversation=persisted_conversation,
+        role="user",
+        content=request.message,
+    )
 
     repository = PropertyEmbeddingRepository(
         db
@@ -88,6 +123,27 @@ def process_conversation_turn(
     result = conversation_service.process_turn(
         state=state,
         message=request.message,
+    )
+
+    if (
+            result.state.lead_name is not None
+            and persisted_conversation.lead_id is None
+    ):
+        persistence_service.create_and_associate_lead(
+            conversation=persisted_conversation,
+            name=result.state.lead_name,
+        )
+
+    state_data = result.state.model_dump(
+        exclude={
+            "conversation_id",
+        },
+        mode="json",
+    )
+
+    persistence_service.update_state(
+        conversation=persisted_conversation,
+        state=state_data,
     )
 
     properties = []

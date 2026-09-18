@@ -11,6 +11,9 @@ from app.services.conversation_property_search_service import (
 from app.services.conversation_qualification_service import (
     ConversationQualificationService,
 )
+from app.services.lead_identification_service import (
+    LeadIdentificationService,
+)
 from app.services.property_search_intent_service import (
     PropertySearchIntentService,
 )
@@ -23,6 +26,7 @@ class ConversationService:
 
     Responsabilidades:
     - interpretar novas mensagens;
+    - identificar o nome do lead;
     - combinar novas informações com o estado anterior;
     - preservar informações já conhecidas;
     - atualizar informações alteradas pelo cliente;
@@ -36,6 +40,7 @@ class ConversationService:
             intent_service: PropertySearchIntentService | None = None,
             qualification_service: ConversationQualificationService | None = None,
             property_search_service: ConversationPropertySearchService | None = None,
+            lead_identification_service: LeadIdentificationService | None = None,
     ):
         self.intent_service = (
                 intent_service
@@ -49,6 +54,11 @@ class ConversationService:
 
         self.property_search_service = (
             property_search_service
+        )
+
+        self.lead_identification_service = (
+                lead_identification_service
+                or LeadIdentificationService()
         )
 
     def merge_intent(
@@ -116,6 +126,8 @@ class ConversationService:
             -> PropertySearchIntentService
             -> PropertySearchIntent
             -> merge com estado anterior
+            -> LeadIdentificationService
+            -> identificação do nome do lead
             -> ConversationState atualizado
         """
 
@@ -123,10 +135,21 @@ class ConversationService:
             message
         )
 
-        return self.merge_intent(
+        updated_state = self.merge_intent(
             state,
             intent,
         )
+
+        lead_name = (
+            self.lead_identification_service.extract_name(
+                message
+            )
+        )
+
+        if lead_name is not None:
+            updated_state.lead_name = lead_name
+
+        return updated_state
 
     def process_turn(
             self,
@@ -139,6 +162,7 @@ class ConversationService:
         Fluxo:
         mensagem
             -> interpretação da intenção
+            -> identificação do lead
             -> atualização da memória
             -> qualificação
             -> próxima pergunta, quando ainda faltarem dados

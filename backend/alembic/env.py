@@ -10,6 +10,9 @@ from app.database.base import Base
 # Novos models deverão ser importados aqui futuramente.
 from app.models.property import Property  # noqa: F401
 from app.models.property_embedding import PropertyEmbedding  # noqa: F401
+from app.models.lead import Lead  # noqa: F401
+from app.models.conversation import Conversation  # noqa: F401
+from app.models.message import Message  # noqa: F401
 
 # Objeto de configuração do Alembic.
 config = context.config
