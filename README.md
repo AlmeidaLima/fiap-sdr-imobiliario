@@ -1672,7 +1672,354 @@
                              PostgreSQL + pgvector
     ```
 
-    ---
+---
+
+### Missão 11 — Agente SDR e Orquestração com LangGraph
+
+**Status: Concluída**
+
+A Missão 11 adiciona a camada de orquestração do agente SDR utilizando **LangGraph**, evoluindo o fluxo conversacional determinístico implementado nas missões anteriores para uma arquitetura baseada em grafo.
+
+O agente reutiliza os serviços já existentes de interpretação da intenção, qualificação conversacional, persistência e busca de imóveis. O LangGraph é responsável pela coordenação do fluxo e não acessa diretamente o banco de dados.
+
+A versão utilizada durante a implementação foi:
+
+```text
+LangGraph 1.2.11
+```
+
+#### Fluxo do agente SDR
+
+```text
+POST /api/v1/conversations/turn
+              │
+              ▼
+       SDRAgentService
+              │
+              ▼
+          LangGraph
+              │
+              ▼
+       process_message
+              │
+              ▼
+    qualify_conversation
+              │
+        ┌─────┴─────┐
+        │           │
+        ▼           ▼
+ não qualificado  qualificado
+        │           │
+        ▼           ▼
+  ask_question   search_properties
+        │           │
+        └─────┬─────┘
+              ▼
+             END
+```
+
+Quando a conversa ainda não possui os critérios mínimos necessários, o grafo direciona o fluxo para `ask_question`, que utiliza a qualificação existente para determinar a próxima pergunta.
+
+Quando a conversa está qualificada, o fluxo segue para `search_properties`, que utiliza o `ConversationPropertySearchService` para acessar a camada de busca híbrida.
+
+#### Estado do agente
+
+O estado compartilhado entre os nodes é representado por `AgentState`.
+
+Arquivo:
+
+```text
+backend/app/agents/state.py
+```
+
+O estado pode transportar informações como:
+
+```text
+conversation_id
+message
+conversation_state
+qualification
+properties
+response
+error
+```
+
+O `ConversationState` existente continua sendo utilizado para armazenar os critérios acumulados durante os múltiplos turnos da conversa.
+
+#### Nodes
+
+Os nodes do agente estão implementados em:
+
+```text
+backend/app/agents/nodes.py
+```
+
+Nodes implementados:
+
+```text
+process_message_node
+qualify_conversation_node
+ask_question_node
+search_properties_node
+```
+
+Cada node possui uma responsabilidade específica.
+
+O node `process_message_node` atualiza o estado da conversa utilizando as regras já existentes no `ConversationService`.
+
+O node `qualify_conversation_node` utiliza o `ConversationQualificationService` para verificar se existem informações suficientes para iniciar a busca.
+
+O node `ask_question_node` retorna a próxima pergunta quando a conversa ainda não está qualificada.
+
+O node `search_properties_node` utiliza o `ConversationPropertySearchService` recebido por injeção de dependência.
+
+Essa separação mantém o grafo desacoplado da camada de persistência e impede acesso direto ao PostgreSQL pelos nodes.
+
+#### Roteamento condicional
+
+O roteamento está implementado em:
+
+```text
+backend/app/agents/routing.py
+```
+
+Após a qualificação, o grafo decide entre dois caminhos:
+
+```text
+qualified = false
+        │
+        ▼
+ask_question
+
+qualified = true
+        │
+        ▼
+search_properties
+```
+
+A decisão é realizada por:
+
+```text
+route_after_qualification
+```
+
+#### Grafo SDR
+
+A construção do grafo está centralizada em:
+
+```text
+backend/app/agents/sdr_graph.py
+```
+
+O fluxo implementado é:
+
+```text
+START
+  │
+  ▼
+process_message
+  │
+  ▼
+qualify_conversation
+  │
+  ├── ask_question ────────> END
+  │
+  └── search_properties ──> END
+```
+
+O grafo é compilado pelo LangGraph e executado a cada turno da conversa.
+
+#### SDRAgentService
+
+A aplicação acessa o agente através de:
+
+```text
+backend/app/services/sdr_agent_service.py
+```
+
+O `SDRAgentService` funciona como uma fachada entre a API e o LangGraph.
+
+O endpoint não precisa conhecer a implementação interna do grafo. Ele envia o estado da conversa e a mensagem recebida para o serviço e recebe um `ConversationTurnResult`.
+
+A arquitetura passa a seguir:
+
+```text
+FastAPI
+   │
+   ▼
+SDRAgentService
+   │
+   ▼
+LangGraph
+   │
+   ├── ConversationService
+   ├── ConversationQualificationService
+   └── ConversationPropertySearchService
+              │
+              ▼
+     PropertyHybridSearchService
+              │
+              ▼
+      PostgreSQL + pgvector
+```
+
+#### Integração com a persistência da Missão 09
+
+A implementação da Missão 11 preserva a persistência criada na Missão 09.
+
+O endpoint:
+
+```text
+POST /api/v1/conversations/turn
+```
+
+continua responsável pela recuperação e persistência da conversa.
+
+O fluxo integrado é:
+
+```text
+Mensagem do lead
+      │
+      ▼
+ConversationPersistenceService
+      │
+      ├── recupera/cria Conversation
+      ├── recupera estado persistido
+      └── registra mensagem
+      │
+      ▼
+SDRAgentService
+      │
+      ▼
+LangGraph
+      │
+      ├── processa mensagem
+      ├── qualifica conversa
+      └── pergunta ou busca imóveis
+      │
+      ▼
+ConversationPersistenceService
+      │
+      └── atualiza estado
+      │
+      ▼
+Resposta da API
+```
+
+Com isso, o LangGraph passa a controlar a decisão conversacional sem substituir os repositories ou serviços responsáveis pela persistência.
+
+#### Preparação para integração com LLM
+
+A Missão 11 não adiciona geração de respostas por LLM.
+
+A arquitetura cria o ponto de integração necessário para que uma camada de modelo de linguagem possa ser adicionada posteriormente sem permitir acesso direto do modelo ao banco de dados.
+
+A evolução prevista mantém o fluxo:
+
+```text
+LangGraph
+    │
+    ├── Services / Tools
+    │       │
+    │       ▼
+    │   PostgreSQL + pgvector
+    │
+    └── LLMService
+            │
+            ▼
+        Modelo local
+```
+
+O princípio arquitetural permanece:
+
+```text
+LLM / LangGraph
+      │
+      ▼
+Services / Tools
+      │
+      ▼
+Repositories
+      │
+      ▼
+PostgreSQL
+```
+
+O modelo de linguagem não deve acessar diretamente o banco de dados.
+
+#### Testes da Missão 11
+
+Foram adicionados:
+
+```text
+test_agent_nodes.py
+test_agent_routing.py
+test_sdr_graph.py
+test_sdr_agent_service.py
+```
+
+Os novos testes cobrem:
+
+```text
+processamento da mensagem
+criação e atualização do AgentState
+qualificação da conversa
+geração da próxima pergunta
+injeção do serviço de busca
+roteamento condicional
+fluxo não qualificado
+fluxo qualificado
+execução completa do grafo
+conversa em múltiplos turnos
+SDRAgentService
+```
+
+A Missão 11 adicionou:
+
+```text
+14 novos testes
+```
+
+A validação conjunta da orquestração do agente com a persistência conversacional executou:
+
+```text
+19 testes
+19 passed
+```
+
+A regressão completa do backend ao final da implementação apresentou:
+
+```text
+118 testes
+118 passed
+```
+
+#### Definition of Done
+
+- [x] LangGraph integrado ao backend
+- [x] `AgentState` tipado
+- [x] Nodes do agente separados por responsabilidade
+- [x] Roteamento condicional implementado
+- [x] Grafo SDR criado
+- [x] `SDRAgentService` implementado
+- [x] Fluxo não qualificado direcionado para próxima pergunta
+- [x] Fluxo qualificado direcionado para busca de imóveis
+- [x] `ConversationPropertySearchService` reutilizado
+- [x] Acesso direto ao banco evitado dentro do grafo
+- [x] Persistência da Missão 09 preservada
+- [x] Conversas em múltiplos turnos preservadas
+- [x] Endpoint `/api/v1/conversations/turn` integrado ao agente
+- [x] Contrato HTTP existente preservado
+- [x] Ponto de integração preparado para futuro `LLMService`
+- [x] Testes dos nodes implementados
+- [x] Testes do roteamento implementados
+- [x] Testes do grafo implementados
+- [x] Testes do `SDRAgentService` implementados
+- [x] Testes integrados com persistência executados
+- [x] Regressão completa executada
+- [x] 118 testes automatizados passando
+
+---
 
     ## Próximas evoluções
 

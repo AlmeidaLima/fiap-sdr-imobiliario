@@ -12,3 +12,4 @@ pandas>=2.2,<3.0
 
 sentence-transformers>=3.0,<4.0
 torch>=2.2,<3.0
+langgraph==1.2.11

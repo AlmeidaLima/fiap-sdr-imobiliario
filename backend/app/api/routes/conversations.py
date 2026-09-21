@@ -1,19 +1,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.database.conversation_repository import (
-    ConversationRepository,
-)
-from app.database.lead_repository import (
-    LeadRepository,
-)
-from app.database.message_repository import (
-    MessageRepository,
-)
+from app.database.session import get_db
+from app.database.conversation_repository import ConversationRepository
+from app.database.lead_repository import LeadRepository
+from app.database.message_repository import MessageRepository
 from app.database.property_embedding_repository import (
     PropertyEmbeddingRepository,
 )
-from app.database.session import get_db
 from app.schemas.conversation import (
     ConversationState,
     ConversationTurnRequest,
@@ -26,15 +20,11 @@ from app.services.conversation_persistence_service import (
 from app.services.conversation_property_search_service import (
     ConversationPropertySearchService,
 )
-from app.services.conversation_service import (
-    ConversationService,
-)
-from app.services.embedding_service import (
-    EmbeddingService,
-)
+from app.services.embedding_service import EmbeddingService
 from app.services.property_hybrid_search_service import (
     PropertyHybridSearchService,
 )
+from app.services.sdr_agent_service import SDRAgentService
 
 
 router = APIRouter(
@@ -51,26 +41,18 @@ def process_conversation_turn(
         request: ConversationTurnRequest,
         db: Session = Depends(get_db),
 ) -> ConversationTurnResponse:
-    """
-    Processa um turno da conversa do SDR imobiliário.
 
-    Fluxo:
-    - recupera ou cria a conversa pelo conversation_id;
-    - recupera o estado persistido no PostgreSQL;
-    - persiste a mensagem enviada pelo usuário;
-    - interpreta a nova mensagem;
-    - identifica o nome do lead;
-    - cria e associa o lead quando necessário;
-    - acumula os critérios;
-    - avalia a qualificação;
-    - quando qualificado, executa busca híbrida;
-    - persiste o novo estado;
-    - retorna estado, qualificação e imóveis.
-    """
+    # ============================================================
+    # Repositories
+    # ============================================================
 
     conversation_repository = ConversationRepository(db)
     message_repository = MessageRepository(db)
     lead_repository = LeadRepository(db)
+
+    # ============================================================
+    # Persistência da conversa
+    # ============================================================
 
     persistence_service = ConversationPersistenceService(
         conversation_repository=conversation_repository,
@@ -78,101 +60,104 @@ def process_conversation_turn(
         lead_repository=lead_repository,
     )
 
-    persisted_conversation = persistence_service.get_or_create(
-        request.conversation_id
+    conversation = persistence_service.get_or_create(
+        conversation_id=request.conversation_id,
     )
 
-    state = ConversationState(
+    # ============================================================
+    # Recupera o estado persistido
+    # ============================================================
+
+    persisted_state = conversation.state or {}
+
+    conversation_state = ConversationState(
         conversation_id=request.conversation_id,
-        **persisted_conversation.state,
+        **persisted_state,
     )
+
+    # ============================================================
+    # Persiste mensagem recebida do usuário
+    # ============================================================
 
     persistence_service.save_message(
-        conversation=persisted_conversation,
+        conversation=conversation,
         role="user",
         content=request.message,
     )
 
-    repository = PropertyEmbeddingRepository(
-        db
-    )
+    # ============================================================
+    # Infraestrutura da busca de imóveis
+    # ============================================================
 
     embedding_service = EmbeddingService()
 
-    hybrid_search_service = (
-        PropertyHybridSearchService(
-            embedding_service=embedding_service,
-            repository=repository,
-        )
+    property_embedding_repository = PropertyEmbeddingRepository(db)
+
+    hybrid_search_service = PropertyHybridSearchService(
+        embedding_service=embedding_service,
+        repository=property_embedding_repository,
     )
 
-    property_search_service = (
-        ConversationPropertySearchService(
-            hybrid_search_service=(
-                hybrid_search_service
-            ),
-        )
+    property_search_service = ConversationPropertySearchService(
+        hybrid_search_service=hybrid_search_service,
     )
 
-    conversation_service = ConversationService(
-        property_search_service=(
-            property_search_service
-        ),
+    # ============================================================
+    # Agente SDR / LangGraph
+    # ============================================================
+
+    sdr_agent_service = SDRAgentService(
+        property_search_service=property_search_service,
     )
 
-    result = conversation_service.process_turn(
-        state=state,
+    turn_result = sdr_agent_service.process_turn(
+        conversation_state=conversation_state,
         message=request.message,
     )
 
-    if (
-            result.state.lead_name is not None
-            and persisted_conversation.lead_id is None
-    ):
+    # ============================================================
+    # Lead
+    # ============================================================
+
+    if turn_result.state.lead_name and conversation.lead_id is None:
         persistence_service.create_and_associate_lead(
-            conversation=persisted_conversation,
-            name=result.state.lead_name,
+            conversation=conversation,
+            name=turn_result.state.lead_name,
         )
 
-    state_data = result.state.model_dump(
-        exclude={
-            "conversation_id",
-        },
-        mode="json",
-    )
+    # ============================================================
+    # Atualiza estado persistido
+    # ============================================================
 
     persistence_service.update_state(
-        conversation=persisted_conversation,
-        state=state_data,
+        conversation=conversation,
+        state=turn_result.state.model_dump(
+            exclude={"conversation_id"},
+            mode="json",
+        ),
     )
+
+    # ============================================================
+    # Converte resultado da busca para schema HTTP
+    # ============================================================
 
     properties = []
 
-    for property_embedding, similarity_score in (
-            result.properties
-    ):
-        property_data = property_embedding.property
+    for property_embedding, similarity_score in turn_result.properties:
+        property_model = property_embedding.property
 
         properties.append(
             PropertySearchResponse(
-                id=property_data.id,
-                external_id=(
-                    property_data.external_id
-                ),
-                title=property_data.title,
-                description=property_data.description,
-                neighborhood=(
-                    property_data.neighborhood
-                ),
-                usable_area=(
-                    property_data.usable_area
-                ),
-                bedrooms=property_data.bedrooms,
-                bathrooms=property_data.bathrooms,
-                parking_spaces=(
-                    property_data.parking_spaces
-                ),
-                price=property_data.price,
+                id=property_model.id,
+                external_id=property_model.external_id,
+                title=property_model.title,
+                description=property_model.description,
+                neighborhood=property_model.neighborhood,
+                usable_area=property_model.usable_area,
+                bedrooms=property_model.bedrooms,
+                bathrooms=property_model.bathrooms,
+                parking_spaces=property_model.parking_spaces,
+                price=property_model.price,
                 similarity_score=round(
                     similarity_score,
                     4,
@@ -180,11 +165,13 @@ def process_conversation_turn(
             )
         )
 
+    # ============================================================
+    # Response
+    # ============================================================
+
     return ConversationTurnResponse(
-        conversation_id=(
-            result.state.conversation_id
-        ),
-        state=result.state,
-        qualification=result.qualification,
+        conversation_id=turn_result.state.conversation_id,
+        state=turn_result.state,
+        qualification=turn_result.qualification,
         properties=properties,
     )
