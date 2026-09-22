@@ -97,34 +97,48 @@ export function Chat() {
   }
 
   return (
-    <section className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <ChatHeader />
+      <section className="flex h-[80vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <ChatHeader />
 
-      <div className="flex flex-1 flex-col overflow-y-auto">
-        <MessageList messages={messages} />
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          {/* Painel da conversa */}
+          <div className="flex min-h-0 flex-col border-b border-gray-200 md:w-2/5 md:border-r md:border-b-0">
+            <div className="border-b border-gray-100 px-5 py-3">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Conversa
+              </h2>
+            </div>
 
-        <PropertyList properties={properties} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <MessageList messages={messages} />
 
-        {isSending && (
-          <div className="px-4 pb-3">
-            <LoadingIndicator />
+              {isSending && (
+                  <div className="px-4 pb-3">
+                    <LoadingIndicator />
+                  </div>
+              )}
+            </div>
+
+            {error && (
+                <div
+                    role="alert"
+                    className="mx-4 mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
+                >
+                  {error}
+                </div>
+            )}
+
+            <MessageInput
+                disabled={isSending}
+                onSend={handleSend}
+            />
           </div>
-        )}
-      </div>
 
-      {error && (
-        <div
-          role="alert"
-          className="mx-4 mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {error}
+          {/* Painel dos imóveis */}
+          <div className="min-h-0 flex-1 overflow-y-auto md:w-3/5">
+            <PropertyList properties={properties} />
+          </div>
         </div>
-      )}
-
-      <MessageInput
-        disabled={isSending}
-        onSend={handleSend}
-      />
-    </section>
+      </section>
   );
 }
