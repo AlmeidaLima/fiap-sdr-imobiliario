@@ -1,0 +1,19 @@
+import { apiClient } from "../lib/apiClient";
+import type {
+  ConversationTurnRequest,
+  ConversationTurnResponse,
+} from "../types/conversation";
+
+const CONVERSATION_TURN_PATH = "/api/v1/conversations/turn";
+
+export async function sendConversationTurn(
+  request: ConversationTurnRequest,
+): Promise<ConversationTurnResponse> {
+  return apiClient<ConversationTurnResponse>(
+    CONVERSATION_TURN_PATH,
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+  );
+}
