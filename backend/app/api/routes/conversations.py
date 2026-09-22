@@ -93,37 +93,60 @@ def process_conversation_turn(
         content=request.message,
     )
 
-    repository = PropertyEmbeddingRepository(
-        db
-    )
+    # ============================================================
+    # PROCESSAMENTO E QUALIFICAÇÃO
+    #
+    # Neste momento ainda não criamos o EmbeddingService.
+    # A interpretação da mensagem e a qualificação não precisam
+    # carregar o modelo de embeddings.
+    # ============================================================
 
-    embedding_service = EmbeddingService()
-
-    hybrid_search_service = (
-        PropertyHybridSearchService(
-            embedding_service=embedding_service,
-            repository=repository,
-        )
-    )
-
-    property_search_service = (
-        ConversationPropertySearchService(
-            hybrid_search_service=(
-                hybrid_search_service
-            ),
-        )
-    )
-
-    conversation_service = ConversationService(
-        property_search_service=(
-            property_search_service
-        ),
-    )
+    conversation_service = ConversationService()
 
     result = conversation_service.process_turn(
         state=state,
         message=request.message,
     )
+
+    # ============================================================
+    # BUSCA DE IMÓVEIS
+    #
+    # O modelo de embeddings é carregado somente quando o lead
+    # possui os critérios mínimos necessários para a busca.
+    # Isso evita inicializar o SentenceTransformer nos primeiros
+    # turnos da conversa.
+    # ============================================================
+
+    if result.qualification.qualified:
+        repository = PropertyEmbeddingRepository(
+            db
+        )
+
+        embedding_service = EmbeddingService()
+
+        hybrid_search_service = (
+            PropertyHybridSearchService(
+                embedding_service=embedding_service,
+                repository=repository,
+            )
+        )
+
+        property_search_service = (
+            ConversationPropertySearchService(
+                hybrid_search_service=(
+                    hybrid_search_service
+                ),
+            )
+        )
+
+        result.properties = property_search_service.search(
+            state=result.state,
+            limit=request.limit,
+        )
+
+    # ============================================================
+    # LEAD
+    # ============================================================
 
     if (
             result.state.lead_name is not None
@@ -133,6 +156,10 @@ def process_conversation_turn(
             conversation=persisted_conversation,
             name=result.state.lead_name,
         )
+
+    # ============================================================
+    # PERSISTÊNCIA DO ESTADO
+    # ============================================================
 
     state_data = result.state.model_dump(
         exclude={
@@ -145,6 +172,10 @@ def process_conversation_turn(
         conversation=persisted_conversation,
         state=state_data,
     )
+
+    # ============================================================
+    # MAPEAMENTO DOS IMÓVEIS PARA A RESPOSTA DA API
+    # ============================================================
 
     properties = []
 
