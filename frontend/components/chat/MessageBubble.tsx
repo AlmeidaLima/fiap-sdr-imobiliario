@@ -17,9 +17,9 @@ export function MessageBubble({
     >
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-          isUser
-            ? "bg-blue-600 text-white"
-            : "bg-gray-100 text-gray-900"
+            isUser
+                ? "bg-blue-600 text-white shadow-sm"
+                : "border border-indigo-100 bg-indigo-50 text-slate-800 shadow-sm"
         }`}
       >
         {message.content}

@@ -15,7 +15,7 @@ const INITIAL_MESSAGE: ChatMessage = {
   id: "initial-message",
   role: "assistant",
   content:
-    "Olá! Sou seu assistente imobiliário. Conte-me que tipo de imóvel você está procurando.",
+      "Olá! Eu sou a LIA, sua assistente imobiliária. Conte-me que tipo de imóvel você está procurando.",
 };
 
 export function Chat() {
@@ -109,7 +109,7 @@ export function Chat() {
               </h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
               <MessageList messages={messages} />
 
               {isSending && (
