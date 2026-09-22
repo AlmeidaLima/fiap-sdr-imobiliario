@@ -32,9 +32,9 @@ describe("Chat", () => {
     render(<Chat />);
 
     expect(
-      screen.getByText(
-        "Olá! Sou seu assistente imobiliário. Conte-me que tipo de imóvel você está procurando.",
-      ),
+        screen.getByText(
+            "Olá! Eu sou a LIA, sua assistente imobiliária. Conte-me que tipo de imóvel você está procurando.",
+        ),
     ).toBeInTheDocument();
 
     expect(
@@ -332,12 +332,16 @@ describe("Chat", () => {
   ).toBeInTheDocument();
 
   expect(
-    screen.getByText("1 vagas"),
+    screen.getByText("1 vaga"),
   ).toBeInTheDocument();
 
-  expect(
-    screen.getByText("Compatibilidade: 88%"),
-  ).toBeInTheDocument();
+    expect(
+        screen.getByText("88%"),
+    ).toBeInTheDocument();
+
+    expect(
+        screen.getByText("Compatibilidade com sua busca"),
+    ).toBeInTheDocument();
 });
 test("exibe loading e bloqueia novo envio enquanto aguarda o backend", async () => {
   mockedSendConversationTurn.mockImplementation(
