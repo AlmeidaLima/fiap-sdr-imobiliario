@@ -12,5 +12,9 @@ class Settings(BaseSettings):
         "postgresql+psycopg://sdr:sdr@postgres:5432/sdr_imobiliario"
     )
 
+    llm_base_url: str = "http://localhost:8080"
+    llm_model: str = "local-model"
+    llm_timeout: float = 30.0
+
 
 settings = Settings()
