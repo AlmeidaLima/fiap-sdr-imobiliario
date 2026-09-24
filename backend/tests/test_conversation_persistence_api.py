@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.database.conversation_repository import (
@@ -16,6 +17,14 @@ from app.main import app
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def mock_llm(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.llm_client.LLMClient.chat",
+        lambda self, messages: "Resposta persistida do assistente.",
+    )
 
 
 def test_conversation_preserves_state_without_client_state():
@@ -481,22 +490,22 @@ def test_conversation_persists_message_history():
             )
         )
 
-        assert len(persisted_messages) == 4
+        assert len(persisted_messages) == 8
 
         assert [
                    message.role
                    for message in persisted_messages
-               ] == [
-                   "user",
-                   "user",
-                   "user",
-                   "user",
-               ]
+               ] == ["user", "assistant"] * 4
 
         assert [
                    message.content
                    for message in persisted_messages
-               ] == messages
+               ][::2] == messages
+
+        assert all(
+            message.content == "Resposta persistida do assistente."
+            for message in persisted_messages[1::2]
+        )
 
     finally:
         db.close()

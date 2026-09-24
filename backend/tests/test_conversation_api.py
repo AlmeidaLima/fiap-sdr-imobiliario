@@ -1,11 +1,20 @@
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def mock_llm(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.llm_client.LLMClient.chat",
+        lambda self, messages: "Resposta natural do assistente.",
+    )
 
 
 def test_conversation_first_turn_returns_next_question():
@@ -242,3 +251,62 @@ def test_unqualified_turn_does_not_initialize_embedding_service(
     )
 
     assert body["properties"] == []
+    assert body["response"] == "Resposta natural do assistente."
+
+
+def test_conversation_uses_fallback_when_llm_is_unavailable(
+        monkeypatch,
+):
+    from app.services.llm_client import LLMClientError
+
+    def fail_chat(self, messages):
+        raise LLMClientError("LLM indisponível")
+
+    monkeypatch.setattr(
+        "app.services.llm_client.LLMClient.chat",
+        fail_chat,
+    )
+
+    response = client.post(
+        "/api/v1/conversations/turn",
+        json={
+            "conversation_id": f"test-{uuid4()}",
+            "message": "Quero um apartamento no Boa Vista",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == body["qualification"]["next_question"]
+
+
+def test_conversation_limits_llm_history_to_six_records(monkeypatch):
+    captured_messages = []
+
+    def capture_chat(self, messages):
+        captured_messages.append(messages)
+        return "Resposta natural do assistente."
+
+    monkeypatch.setattr(
+        "app.services.llm_client.LLMClient.chat",
+        capture_chat,
+    )
+    conversation_id = f"test-{uuid4()}"
+
+    for index in range(5):
+        response = client.post(
+            "/api/v1/conversations/turn",
+            json={
+                "conversation_id": conversation_id,
+                "message": f"Ainda estou pesquisando imóveis {index}",
+            },
+        )
+        assert response.status_code == 200
+
+    last_request = captured_messages[-1]
+    history = last_request[1:-1]
+
+    assert len(history) == 6
+    assert [message["role"] for message in history] == [
+        "user", "assistant", "user", "assistant", "user", "assistant",
+    ]

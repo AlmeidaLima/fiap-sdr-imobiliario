@@ -66,6 +66,8 @@ class ConversationTurnResult(BaseModel):
         default_factory=list,
     )
 
+    response: str
+
 
 class ConversationTurnRequest(BaseModel):
     conversation_id: str = Field(
@@ -89,6 +91,8 @@ class ConversationTurnRequest(BaseModel):
 
 class ConversationTurnResponse(BaseModel):
     conversation_id: str
+
+    response: str
 
     state: ConversationState
 
