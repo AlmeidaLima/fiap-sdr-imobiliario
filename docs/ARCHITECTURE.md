@@ -743,22 +743,29 @@ O agente não deverá perguntar novamente informações que já foram fornecidas
 
 ## 9. Lead Score
 
-O lead scoring deverá ser preferencialmente determinístico.
+O lead scoring é determinístico.
 
-O LLM poderá identificar informações presentes na conversa, mas o cálculo da pontuação deverá ser realizado através de código.
+A qualificação comercial é extraída por código e preservada no
+`ConversationState`. Ela representa intenção de compra, aluguel ou investimento,
+urgência normalizada em dias e aceite explícito de reunião ou visita. Negações,
+perguntas meramente informativas e urgências menores que um dia não substituem
+informações válidas já armazenadas.
 
-Exemplo inicial:
+O cálculo da pontuação é responsabilidade exclusiva do `LeadScoreService`. O
+LLM não calcula nem altera score ou classificação.
+
+Regras implementadas:
 
 ```text
 Intenção identificada       +20
 Orçamento informado         +20
 Região definida             +10
 Urgência até 30 dias        +25
-Urgência até 3 meses        +15
+Urgência entre 31 e 90 dias +15
 Aceitou reunião/visita      +25
 ```
 
-Classificação inicial:
+Classificação:
 
 ```text
 0  - 39  → Frio
@@ -783,7 +790,29 @@ Resultado:
 Lead Quente
 ```
 
-As regras poderão ser ajustadas durante os testes da POC.
+O node `calculate_lead_score` recalcula a pontuação a cada turno, depois de
+`process_message` e antes de `qualify_conversation`:
+
+```text
+START
+  ↓
+process_message
+  ↓
+calculate_lead_score
+  ↓
+qualify_conversation
+  ↓
+route_after_qualification
+  ├── ask_question → generate_response → END
+  └── search_properties → generate_response → END
+```
+
+O routing continua dependendo exclusivamente da qualificação mínima da conversa.
+Score e classificação não determinam a busca de imóveis nem são utilizados como
+filtros. `PropertySearchIntent` permanece separado de `commercial_intent`.
+
+O resultado é mantido no `ConversationState` e persistido no JSON
+`conversation.state`, sem alteração de schema do banco ou migration.
 
 ---
 

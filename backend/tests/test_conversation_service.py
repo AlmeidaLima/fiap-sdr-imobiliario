@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pytest
+
 from app.schemas.conversation import ConversationState
 from app.schemas.property_search_intent import PropertySearchIntent
 from app.services.conversation_service import ConversationService
@@ -155,3 +157,101 @@ def test_process_message_preserves_lead_name():
 
     assert updated_state.lead_name == "Rafael Almeida"
     assert updated_state.neighborhood == "Boa Vista"
+
+
+def test_process_message_adds_commercial_qualification_without_losing_search_data():
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="commercial-qualification-001",
+        neighborhood="Boa Vista",
+        max_price=Decimal("700000"),
+    )
+
+    updated_state = service.process_message(
+        state=state,
+        message="Quero comprar nos próximos 30 dias",
+    )
+
+    assert updated_state.commercial_intent == "COMPRA"
+    assert updated_state.urgency_days == 30
+    assert updated_state.neighborhood == "Boa Vista"
+    assert updated_state.max_price == Decimal("700000")
+
+
+def test_process_message_preserves_commercial_data_between_turns():
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="commercial-qualification-002",
+        commercial_intent="INVESTIMENTO",
+        urgency_days=60,
+    )
+
+    updated_state = service.process_message(
+        state=state,
+        message="Também quero churrasqueira",
+    )
+
+    assert updated_state.commercial_intent == "INVESTIMENTO"
+    assert updated_state.urgency_days == 60
+
+
+def test_process_message_preserves_meeting_or_visit_acceptance():
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="commercial-qualification-003",
+        accepted_meeting_or_visit=True,
+    )
+
+    updated_state = service.process_message(
+        state=state,
+        message="Como funciona a visita?",
+    )
+
+    assert updated_state.accepted_meeting_or_visit is True
+
+
+def test_process_message_does_not_replace_urgency_with_zero():
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="commercial-qualification-004",
+        urgency_days=60,
+    )
+
+    updated_state = service.process_message(
+        state=state,
+        message="Em 0 dias",
+    )
+
+    assert updated_state.urgency_days == 60
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Não quero comprar",
+        "Não quero alugar",
+        "Não quero investir",
+        "Não quero visitar",
+        "Não quero marcar uma reunião",
+        "Como funciona a compra?",
+        "Como funciona o aluguel?",
+        "Como funciona a visita?",
+    ],
+)
+def test_process_message_preserves_commercial_data_for_non_evidence(message):
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="commercial-qualification-005",
+        commercial_intent="COMPRA",
+        urgency_days=30,
+        accepted_meeting_or_visit=True,
+    )
+
+    updated_state = service.process_message(
+        state=state,
+        message=message,
+    )
+
+    assert updated_state.commercial_intent == "COMPRA"
+    assert updated_state.urgency_days == 30
+    assert updated_state.accepted_meeting_or_visit is True

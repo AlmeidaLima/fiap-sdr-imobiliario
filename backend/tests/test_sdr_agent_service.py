@@ -46,6 +46,8 @@ def test_sdr_agent_service_processes_unqualified_turn():
     )
 
     assert result.state.neighborhood == "Boa Vista"
+    assert result.state.lead_score == 10
+    assert result.state.lead_classification == "FRIO"
     assert result.qualification.qualified is False
     assert result.qualification.next_question is not None
     assert result.properties == []
@@ -86,6 +88,8 @@ def test_sdr_agent_service_searches_when_qualified():
     assert result.state.neighborhood == "Boa Vista"
     assert result.state.min_bedrooms == 3
     assert result.state.max_price == 700000
+    assert result.state.lead_score == 30
+    assert result.state.lead_classification == "FRIO"
 
     assert result.qualification.qualified is True
     assert result.properties == expected_properties
