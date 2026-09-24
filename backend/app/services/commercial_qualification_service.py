@@ -1,0 +1,131 @@
+import re
+import unicodedata
+from dataclasses import dataclass
+from typing import Literal
+
+
+CommercialIntent = Literal[
+    "COMPRA",
+    "ALUGUEL",
+    "INVESTIMENTO",
+    "INDEFINIDO",
+]
+
+
+@dataclass(frozen=True)
+class CommercialQualification:
+    commercial_intent: CommercialIntent = "INDEFINIDO"
+    urgency_days: int | None = None
+    accepted_meeting_or_visit: bool = False
+
+
+class CommercialQualificationService:
+
+    INTENT_PATTERNS = (
+        (
+            "INVESTIMENTO",
+            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo)\b"
+            r"[^.!?]*\b(?:investimento|investir)\b",
+        ),
+        (
+            "ALUGUEL",
+            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo)\b"
+            r"[^.!?]*\b(?:alugar|aluguel|locar|locacao)\b",
+        ),
+        (
+            "COMPRA",
+            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo)\b"
+            r"[^.!?]*\b(?:comprar|compra)\b",
+        ),
+    )
+
+    URGENCY_PATTERN = re.compile(
+        r"\b(?:em|nos? proximos?|daqui a)\s+(\d+)\s+"
+        r"(dias?|mes|meses)\b"
+    )
+
+    ACCEPTANCE_PATTERNS = (
+        r"(?<!nao )\b(?:sim\s*,?\s*)?podemos\s+(?:marcar|agendar)\s+"
+        r"(?:uma\s+)?(?:visita|reuniao)\b",
+        r"(?<!nao )\bquero\s+visitar\b",
+        r"(?<!nao )\bquero\s+(?:marcar|agendar)\s+(?:uma\s+)?"
+        r"(?:visita|reuniao)\b",
+        r"(?<!nao )\baceito\s+(?:uma\s+)?(?:visita|reuniao)\b",
+    )
+
+    def extract(
+            self,
+            message: str,
+    ) -> CommercialQualification:
+        normalized_message = self._normalize_text(message)
+
+        return CommercialQualification(
+            commercial_intent=self._extract_commercial_intent(
+                normalized_message
+            ),
+            urgency_days=self._extract_urgency_days(
+                normalized_message
+            ),
+            accepted_meeting_or_visit=(
+                self._extract_meeting_or_visit_acceptance(
+                    normalized_message
+                )
+            ),
+        )
+
+    @classmethod
+    def _extract_commercial_intent(
+            cls,
+            message: str,
+    ) -> CommercialIntent:
+        for intent, pattern in cls.INTENT_PATTERNS:
+            if re.search(pattern, message):
+                return intent
+
+        return "INDEFINIDO"
+
+    @classmethod
+    def _extract_urgency_days(
+            cls,
+            message: str,
+    ) -> int | None:
+        match = cls.URGENCY_PATTERN.search(message)
+
+        if not match:
+            return None
+
+        quantity = int(match.group(1))
+        unit = match.group(2)
+
+        if quantity < 1:
+            return None
+
+        if unit.startswith("mes"):
+            return quantity * 30
+
+        return quantity
+
+    @classmethod
+    def _extract_meeting_or_visit_acceptance(
+            cls,
+            message: str,
+    ) -> bool:
+        return any(
+            re.search(pattern, message) is not None
+            for pattern in cls.ACCEPTANCE_PATTERNS
+        )
+
+    @staticmethod
+    def _normalize_text(value: str) -> str:
+        normalized = unicodedata.normalize("NFKD", value)
+        without_accents = "".join(
+            character
+            for character in normalized
+            if not unicodedata.combining(character)
+        )
+
+        return re.sub(
+            r"\s+",
+            " ",
+            without_accents.strip().lower(),
+        )

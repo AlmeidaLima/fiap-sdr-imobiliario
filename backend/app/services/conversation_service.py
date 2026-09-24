@@ -8,6 +8,9 @@ from app.schemas.property_search_intent import (
 from app.services.conversation_property_search_service import (
     ConversationPropertySearchService,
 )
+from app.services.commercial_qualification_service import (
+    CommercialQualificationService,
+)
 from app.services.conversation_qualification_service import (
     ConversationQualificationService,
 )
@@ -41,6 +44,7 @@ class ConversationService:
             qualification_service: ConversationQualificationService | None = None,
             property_search_service: ConversationPropertySearchService | None = None,
             lead_identification_service: LeadIdentificationService | None = None,
+            commercial_qualification_service: CommercialQualificationService | None = None,
     ):
         self.intent_service = (
                 intent_service
@@ -59,6 +63,11 @@ class ConversationService:
         self.lead_identification_service = (
                 lead_identification_service
                 or LeadIdentificationService()
+        )
+
+        self.commercial_qualification_service = (
+                commercial_qualification_service
+                or CommercialQualificationService()
         )
 
     def merge_intent(
@@ -148,6 +157,25 @@ class ConversationService:
 
         if lead_name is not None:
             updated_state.lead_name = lead_name
+
+        commercial_qualification = (
+            self.commercial_qualification_service.extract(
+                message
+            )
+        )
+
+        if commercial_qualification.commercial_intent != "INDEFINIDO":
+            updated_state.commercial_intent = (
+                commercial_qualification.commercial_intent
+            )
+
+        if commercial_qualification.urgency_days is not None:
+            updated_state.urgency_days = (
+                commercial_qualification.urgency_days
+            )
+
+        if commercial_qualification.accepted_meeting_or_visit:
+            updated_state.accepted_meeting_or_visit = True
 
         return updated_state
 

@@ -2056,6 +2056,76 @@ Validação final da Missão 12:
 
 ---
 
+### Missão 13 — Qualificação comercial e Lead Score determinístico
+
+**Status: Concluída**
+
+A qualificação comercial passa a identificar de forma determinística a intenção
+de `COMPRA`, `ALUGUEL` ou `INVESTIMENTO`, a urgência normalizada em dias e o
+aceite explícito de reunião ou visita. Essas informações são preservadas no
+`ConversationState` entre os turnos. Negações, perguntas meramente informativas
+e urgências menores que um dia não são tratadas como novas evidências.
+
+O `LeadScoreService` calcula a pontuação sem LLM, banco de dados ou efeitos
+colaterais:
+
+```text
+Intenção identificada       +20
+Orçamento informado         +20
+Região definida             +10
+Urgência até 30 dias        +25
+Urgência entre 31 e 90      +15
+Aceitou reunião/visita      +25
+```
+
+```text
+0  - 39  → FRIO
+40 - 69  → MORNO
+70 - 100 → QUENTE
+```
+
+O cálculo foi integrado ao LangGraph após o processamento da mensagem e antes
+da qualificação mínima para busca:
+
+```text
+START
+  ↓
+process_message
+  ↓
+calculate_lead_score
+  ↓
+qualify_conversation
+  ↓
+route_after_qualification
+  ├── ask_question
+  │      ↓
+  │   generate_response
+  │
+  └── search_properties
+         ↓
+      generate_response
+         ↓
+        END
+```
+
+O score não participa do routing nem determina a busca de imóveis. O LLM não
+calcula ou altera score e classificação, e `PropertySearchIntent` permanece
+separado de `commercial_intent`. Nenhuma migration foi necessária: score,
+classificação e qualificação comercial são persistidos em `conversation.state`.
+
+Validação final da Missão 13:
+
+- [x] Extração comercial determinística e incremental
+- [x] Negações, perguntas informativas e urgências inválidas tratadas
+- [x] `LeadScoreService` determinístico e sem efeitos colaterais
+- [x] `calculate_lead_score` integrado ao LangGraph
+- [x] Regressão completa executada no container backend
+- [x] 194 testes coletados e aprovados
+- [x] 0 falhas e 0 skips
+- [x] `git diff --check` aprovado
+
+---
+
     ## Próximas evoluções
 
     Com a base imobiliária estruturada, a busca híbrida, a interpretação determinística da intenção e a persistência conversacional implementadas, o projeto está preparado para evoluir para as próximas etapas do agente SDR.
@@ -2065,7 +2135,6 @@ Validação final da Missão 12:
     - recuperação de contexto imobiliário;
     - camada RAG;
     - integração com modelo de linguagem local;
-    - qualificação comercial completa de leads e lead score;
     - orquestração do agente;
     - integração com canais de atendimento;
     - guardrails;

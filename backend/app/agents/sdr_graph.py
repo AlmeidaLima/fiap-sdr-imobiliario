@@ -2,6 +2,7 @@ from langgraph.graph import END, START, StateGraph
 from collections.abc import Callable
 from app.agents.nodes import (
     ask_question_node,
+    calculate_lead_score_node,
     generate_response_node,
     process_message_node,
     qualify_conversation_node,
@@ -31,6 +32,11 @@ def build_sdr_graph(
     graph.add_node(
         "process_message",
         process_message_node,
+    )
+
+    graph.add_node(
+        "calculate_lead_score",
+        calculate_lead_score_node,
     )
 
     graph.add_node(
@@ -66,6 +72,11 @@ def build_sdr_graph(
 
     graph.add_edge(
         "process_message",
+        "calculate_lead_score",
+    )
+
+    graph.add_edge(
+        "calculate_lead_score",
         "qualify_conversation",
     )
 

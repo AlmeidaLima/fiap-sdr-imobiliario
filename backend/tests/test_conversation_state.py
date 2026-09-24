@@ -46,6 +46,11 @@ def test_conversation_state_starts_with_empty_criteria():
     assert state.min_parking_spaces is None
     assert state.min_usable_area is None
     assert state.semantic_preferences == []
+    assert state.commercial_intent is None
+    assert state.urgency_days is None
+    assert state.accepted_meeting_or_visit is False
+    assert state.lead_score == 0
+    assert state.lead_classification == "FRIO"
 
 
 def test_conversation_state_rejects_negative_price():

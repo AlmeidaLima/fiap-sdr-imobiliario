@@ -40,6 +40,8 @@ def test_sdr_graph_asks_for_missing_information():
     )
 
     assert result["conversation_state"].neighborhood == "Boa Vista"
+    assert result["conversation_state"].lead_score == 10
+    assert result["conversation_state"].lead_classification == "FRIO"
 
     assert result["qualification"].qualified is False
 
@@ -81,6 +83,8 @@ def test_sdr_graph_searches_properties_when_qualified():
     assert result["conversation_state"].neighborhood == "Boa Vista"
     assert result["conversation_state"].min_bedrooms == 3
     assert result["conversation_state"].max_price == 700000
+    assert result["conversation_state"].lead_score == 30
+    assert result["conversation_state"].lead_classification == "FRIO"
 
     assert result["qualification"].qualified is True
 
@@ -111,11 +115,14 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
     first_turn = graph.invoke(
         {
             "conversation_id": "graph-multiturn-001",
-            "message": "Quero um apartamento no Boa Vista",
+            "message": "Quero comprar um apartamento no Boa Vista",
         }
     )
 
     assert first_turn["conversation_state"].neighborhood == "Boa Vista"
+    assert first_turn["conversation_state"].commercial_intent == "COMPRA"
+    assert first_turn["conversation_state"].lead_score == 30
+    assert first_turn["conversation_state"].lead_classification == "FRIO"
     assert first_turn["qualification"].qualified is False
     assert first_turn["response"] is not None
 
@@ -133,6 +140,8 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
 
     assert second_turn["conversation_state"].neighborhood == "Boa Vista"
     assert second_turn["conversation_state"].max_price == 700000
+    assert second_turn["conversation_state"].lead_score == 50
+    assert second_turn["conversation_state"].lead_classification == "MORNO"
     assert second_turn["qualification"].qualified is False
     assert second_turn["response"] is not None
 
@@ -143,7 +152,7 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
     third_turn = graph.invoke(
         {
             "conversation_id": "graph-multiturn-001",
-            "message": "Quero 3 quartos",
+            "message": "Preciso em 30 dias e quero 3 quartos",
             "conversation_state": second_turn["conversation_state"],
         }
     )
@@ -151,6 +160,9 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
     assert third_turn["conversation_state"].neighborhood == "Boa Vista"
     assert third_turn["conversation_state"].max_price == 700000
     assert third_turn["conversation_state"].min_bedrooms == 3
+    assert third_turn["conversation_state"].urgency_days == 30
+    assert third_turn["conversation_state"].lead_score == 75
+    assert third_turn["conversation_state"].lead_classification == "QUENTE"
 
     assert third_turn["qualification"].qualified is True
 

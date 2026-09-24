@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +10,20 @@ class ConversationState(BaseModel):
     conversation_id: str
 
     lead_name: str | None = None
+
+    commercial_intent: Literal[
+        "COMPRA", "ALUGUEL", "INVESTIMENTO", "INDEFINIDO",
+    ] | None = None
+
+    urgency_days: int | None = Field(default=None, ge=1)
+
+    accepted_meeting_or_visit: bool = False
+
+    lead_score: int = Field(default=0, ge=0, le=100)
+
+    lead_classification: Literal[
+        "FRIO", "MORNO", "QUENTE",
+    ] = "FRIO"
 
     neighborhood: str | None = None
 
@@ -55,6 +70,14 @@ class ConversationQualification(BaseModel):
     )
 
     next_question: str | None = None
+
+
+class LeadScoreResult(BaseModel):
+    score: int = Field(ge=0, le=100)
+
+    classification: Literal[
+        "FRIO", "MORNO", "QUENTE",
+    ]
 
 
 class ConversationTurnResult(BaseModel):

@@ -208,16 +208,16 @@ A estrutura definitiva poderá ser ajustada durante a implementação.
 
 O sistema deve calcular uma pontuação de qualificação do lead.
 
-A lógica inicial será determinística.
+A lógica é determinística e utiliza o estado estruturado da conversa.
 
-Exemplo:
+Regras:
 
 ```text
 Intenção identificada      +20
 Orçamento informado        +20
 Região definida            +10
 Urgência até 30 dias       +25
-Urgência até 3 meses       +15
+Urgência entre 31 e 90 dias +15
 Aceitou reunião/visita     +25
 ```
 
@@ -233,8 +233,16 @@ Critérios de aceitação:
 
 - o cálculo deve ser realizado por código;
 - o resultado deve ser reproduzível;
-- o LLM não deve decidir arbitrariamente a pontuação;
-- as regras devem poder ser testadas isoladamente.
+- o LLM não deve calcular ou alterar score e classificação;
+- as regras devem poder ser testadas isoladamente;
+- intenção comercial, urgência e aceite de reunião ou visita devem ser
+  preservados entre turnos;
+- negações e perguntas meramente informativas não devem produzir nova intenção
+  ou aceite;
+- urgências menores que um dia devem ser ignoradas;
+- score e classificação não devem participar do routing ou determinar a busca
+  de imóveis;
+- score e classificação devem ser persistidos em `conversation.state`.
 
 ---
 

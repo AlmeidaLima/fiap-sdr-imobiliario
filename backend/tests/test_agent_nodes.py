@@ -49,6 +49,53 @@ def test_process_message_node_creates_conversation_state_when_missing():
     assert conversation_state.conversation_id == "agent-test-002"
     assert conversation_state.max_price == 700000
 
+
+def test_calculate_lead_score_node_empty_state_is_cold():
+    from app.agents.nodes import calculate_lead_score_node
+
+    original_state = ConversationState(
+        conversation_id="agent-score-001",
+    )
+
+    result = calculate_lead_score_node(
+        {"conversation_state": original_state}
+    )
+    updated_state = result["conversation_state"]
+
+    assert updated_state.lead_score == 0
+    assert updated_state.lead_classification == "FRIO"
+
+
+def test_calculate_lead_score_node_updates_copy_and_preserves_fields():
+    from app.agents.nodes import calculate_lead_score_node
+
+    original_state = ConversationState(
+        conversation_id="agent-score-002",
+        lead_name="Rafael Teste",
+        commercial_intent="COMPRA",
+        neighborhood="Boa Vista",
+        max_price=Decimal("700000"),
+        min_bedrooms=3,
+        urgency_days=30,
+        accepted_meeting_or_visit=True,
+        semantic_preferences=["academia"],
+    )
+
+    result = calculate_lead_score_node(
+        {"conversation_state": original_state}
+    )
+    updated_state = result["conversation_state"]
+
+    assert updated_state.lead_score == 100
+    assert updated_state.lead_classification == "QUENTE"
+    assert updated_state.lead_name == "Rafael Teste"
+    assert updated_state.neighborhood == "Boa Vista"
+    assert updated_state.max_price == Decimal("700000")
+    assert updated_state.min_bedrooms == 3
+    assert updated_state.semantic_preferences == ["academia"]
+    assert original_state.lead_score == 0
+    assert original_state.lead_classification == "FRIO"
+
 def test_qualify_conversation_node_returns_not_qualified():
     from app.agents.nodes import qualify_conversation_node
 

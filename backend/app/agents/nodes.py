@@ -9,6 +9,7 @@ from app.services.conversation_property_search_service import (
 )
 from app.services.llm_client import LLMClientError
 from app.services.llm_service import LLMService
+from app.services.lead_score_service import LeadScoreService
 
 def process_message_node(state: AgentState) -> dict:
     conversation_id = state["conversation_id"]
@@ -26,6 +27,22 @@ def process_message_node(state: AgentState) -> dict:
     updated_state = conversation_service.process_message(
         state=conversation_state,
         message=message,
+    )
+
+    return {
+        "conversation_state": updated_state,
+    }
+
+
+def calculate_lead_score_node(state: AgentState) -> dict:
+    conversation_state = state["conversation_state"]
+    result = LeadScoreService().calculate(conversation_state)
+
+    updated_state = conversation_state.model_copy(
+        update={
+            "lead_score": result.score,
+            "lead_classification": result.classification,
+        }
     )
 
     return {
