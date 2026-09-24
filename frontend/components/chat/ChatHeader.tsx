@@ -1,0 +1,24 @@
+export function ChatHeader() {
+  return (
+      <header className="border-b border-indigo-500 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-sm font-bold text-white ring-1 ring-white/30"
+              aria-hidden="true"
+          >
+            LIA
+          </div>
+
+          <div>
+            <h1 className="font-semibold text-white">
+              LIA
+            </h1>
+
+            <p className="text-sm text-blue-100">
+              Sua assistente inteligente para encontrar o imóvel ideal
+            </p>
+          </div>
+        </div>
+      </header>
+  );
+}

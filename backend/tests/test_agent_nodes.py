@@ -145,4 +145,5 @@ def test_search_properties_node_uses_property_search_service():
 
     property_search_service.search.assert_called_once_with(
         conversation_state,
+        limit=5,
     )

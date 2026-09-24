@@ -58,6 +58,7 @@ def search_properties_node(
 
     properties = property_search_service.search(
         conversation_state,
+        limit=state.get("limit", 5),
     )
 
     return {

@@ -6,8 +6,12 @@ from app.agents.sdr_graph import build_sdr_graph
 def test_sdr_graph_asks_for_missing_information():
     property_search_service = Mock()
 
+    property_search_service_factory = Mock(
+        return_value=property_search_service,
+    )
+
     graph = build_sdr_graph(
-        property_search_service=property_search_service,
+        property_search_service_factory=property_search_service_factory,
     )
 
     result = graph.invoke(
@@ -27,9 +31,15 @@ def test_sdr_graph_asks_for_missing_information():
 
     property_search_service.search.assert_not_called()
 
+    property_search_service_factory.assert_not_called()
+
 
 def test_sdr_graph_searches_properties_when_qualified():
     property_search_service = Mock()
+
+    property_search_service_factory = Mock(
+        return_value=property_search_service,
+    )
 
     expected_properties = [
         ("property-1", 0.95),
@@ -39,7 +49,7 @@ def test_sdr_graph_searches_properties_when_qualified():
     property_search_service.search.return_value = expected_properties
 
     graph = build_sdr_graph(
-        property_search_service=property_search_service,
+        property_search_service_factory=property_search_service_factory,
     )
 
     result = graph.invoke(
@@ -62,8 +72,15 @@ def test_sdr_graph_searches_properties_when_qualified():
 
     property_search_service.search.assert_called_once()
 
+    property_search_service_factory.assert_called_once()
+
+
 def test_sdr_graph_preserves_state_across_multiple_turns():
     property_search_service = Mock()
+
+    property_search_service_factory = Mock(
+        return_value=property_search_service,
+    )
 
     expected_properties = [
         ("property-1", 0.95),
@@ -73,7 +90,7 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
     property_search_service.search.return_value = expected_properties
 
     graph = build_sdr_graph(
-        property_search_service=property_search_service,
+        property_search_service_factory=property_search_service_factory,
     )
 
     # Turno 1 — informa o bairro
@@ -89,6 +106,7 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
     assert first_turn["response"] is not None
 
     property_search_service.search.assert_not_called()
+    property_search_service_factory.assert_not_called()
 
     # Turno 2 — informa o orçamento
     second_turn = graph.invoke(
@@ -105,6 +123,7 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
     assert second_turn["response"] is not None
 
     property_search_service.search.assert_not_called()
+    property_search_service_factory.assert_not_called()
 
     # Turno 3 — informa a quantidade de quartos
     third_turn = graph.invoke(
@@ -124,3 +143,4 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
     assert third_turn["properties"] == expected_properties
 
     property_search_service.search.assert_called_once()
+    property_search_service_factory.assert_called_once()

@@ -7,8 +7,12 @@ from app.services.sdr_agent_service import SDRAgentService
 def test_sdr_agent_service_processes_unqualified_turn():
     property_search_service = Mock()
 
+    property_search_service_factory = Mock(
+        return_value=property_search_service,
+    )
+
     service = SDRAgentService(
-        property_search_service=property_search_service,
+        property_search_service_factory=property_search_service_factory,
     )
 
     state = ConversationState(
@@ -26,10 +30,15 @@ def test_sdr_agent_service_processes_unqualified_turn():
     assert result.properties == []
 
     property_search_service.search.assert_not_called()
+    property_search_service_factory.assert_not_called()
 
 
 def test_sdr_agent_service_searches_when_qualified():
     property_search_service = Mock()
+
+    property_search_service_factory = Mock(
+        return_value=property_search_service,
+    )
 
     expected_properties = [
         ("property-1", 0.95),
@@ -39,7 +48,7 @@ def test_sdr_agent_service_searches_when_qualified():
     property_search_service.search.return_value = expected_properties
 
     service = SDRAgentService(
-        property_search_service=property_search_service,
+        property_search_service_factory=property_search_service_factory,
     )
 
     state = ConversationState(
@@ -62,3 +71,4 @@ def test_sdr_agent_service_searches_when_qualified():
     assert result.properties == expected_properties
 
     property_search_service.search.assert_called_once()
+    property_search_service_factory.assert_called_once()

@@ -1,5 +1,5 @@
 from langgraph.graph import END, START, StateGraph
-
+from collections.abc import Callable
 from app.agents.nodes import (
     ask_question_node,
     process_message_node,
@@ -18,7 +18,10 @@ from app.services.conversation_property_search_service import (
 
 
 def build_sdr_graph(
-        property_search_service: ConversationPropertySearchService,
+        property_search_service_factory: Callable[
+            [],
+            ConversationPropertySearchService,
+        ],
 ):
     graph = StateGraph(AgentState)
 
@@ -41,7 +44,7 @@ def build_sdr_graph(
         ROUTE_SEARCH_PROPERTIES,
         lambda state: search_properties_node(
             state,
-            property_search_service,
+            property_search_service_factory(),
         ),
     )
 

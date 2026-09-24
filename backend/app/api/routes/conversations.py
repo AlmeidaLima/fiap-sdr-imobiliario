@@ -86,33 +86,38 @@ def process_conversation_turn(
     )
 
     # ============================================================
-    # Infraestrutura da busca de imóveis
+    # Factory da infraestrutura de busca
+    #
+    # A infraestrutura de embeddings é criada somente quando
+    # o LangGraph encaminha um lead qualificado para a busca.
     # ============================================================
 
-    embedding_service = EmbeddingService()
+    def property_search_service_factory() -> ConversationPropertySearchService:
+        embedding_service = EmbeddingService()
 
-    property_embedding_repository = PropertyEmbeddingRepository(db)
+        property_embedding_repository = PropertyEmbeddingRepository(db)
 
-    hybrid_search_service = PropertyHybridSearchService(
-        embedding_service=embedding_service,
-        repository=property_embedding_repository,
-    )
+        hybrid_search_service = PropertyHybridSearchService(
+            embedding_service=embedding_service,
+            repository=property_embedding_repository,
+        )
 
-    property_search_service = ConversationPropertySearchService(
-        hybrid_search_service=hybrid_search_service,
-    )
+        return ConversationPropertySearchService(
+            hybrid_search_service=hybrid_search_service,
+        )
 
     # ============================================================
     # Agente SDR / LangGraph
     # ============================================================
 
     sdr_agent_service = SDRAgentService(
-        property_search_service=property_search_service,
+        property_search_service_factory=property_search_service_factory,
     )
 
     turn_result = sdr_agent_service.process_turn(
         conversation_state=conversation_state,
         message=request.message,
+        limit=request.limit,
     )
 
     # ============================================================

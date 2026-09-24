@@ -9,6 +9,7 @@ from app.schemas.conversation import (
 class AgentState(TypedDict, total=False):
     conversation_id: str
     message: str
+    limit: int
 
     conversation_state: ConversationState
     qualification: ConversationQualification

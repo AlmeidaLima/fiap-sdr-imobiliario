@@ -202,3 +202,43 @@ def test_conversation_api_preserves_state_between_turns():
             third_body["qualification"]["next_question"]
             is None
     )
+
+
+def test_unqualified_turn_does_not_initialize_embedding_service(
+        monkeypatch,
+):
+    conversation_id = f"test-{uuid4()}"
+
+    def fail_if_initialized():
+        raise AssertionError(
+            "EmbeddingService não deve ser inicializado "
+            "em um turno ainda não qualificado."
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.conversations.EmbeddingService",
+        fail_if_initialized,
+    )
+
+    response = client.post(
+        "/api/v1/conversations/turn",
+        json={
+            "conversation_id": conversation_id,
+            "message": (
+                "Quero um apartamento no Boa Vista"
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["qualification"]["qualified"] is False
+
+    assert (
+            body["qualification"]["next_question"]
+            is not None
+    )
+
+    assert body["properties"] == []
