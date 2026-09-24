@@ -1,5 +1,20 @@
+from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import Mock
+
 from app.agents.nodes import process_message_node
-from app.schemas.conversation import ConversationState
+from app.schemas.conversation import ConversationQualification, ConversationState
+from app.services.llm_client import LLMClientError
+
+
+def create_property_result():
+    property_model = SimpleNamespace(
+        id=1, external_id="property-1", title="Apartamento teste",
+        description="Imóvel com área de lazer", neighborhood="Boa Vista",
+        usable_area=80, bedrooms=3, bathrooms=2, parking_spaces=1,
+        price=Decimal("650000.00"),
+    )
+    return (SimpleNamespace(property=property_model), 0.95)
 
 
 def test_process_message_node_updates_conversation_state():
@@ -113,8 +128,6 @@ def test_ask_question_node_returns_none_when_there_is_no_next_question():
     assert result["response"] is None
 
 def test_search_properties_node_uses_property_search_service():
-    from unittest.mock import Mock
-
     from app.agents.nodes import search_properties_node
 
     conversation_state = ConversationState(
@@ -147,3 +160,75 @@ def test_search_properties_node_uses_property_search_service():
         conversation_state,
         limit=5,
     )
+
+
+def test_generate_response_node_uses_controlled_context():
+    from app.agents.nodes import generate_response_node
+
+    llm_service = Mock()
+    llm_service.generate_response.return_value = "Encontrei uma opção."
+    result = generate_response_node(
+        {
+            "message": "Quais imóveis você encontrou?",
+            "conversation_state": ConversationState(
+                conversation_id="agent-test-006", neighborhood="Boa Vista",
+                max_price=700000, min_bedrooms=3,
+            ),
+            "qualification": ConversationQualification(
+                qualified=True, missing_fields=[],
+            ),
+            "conversation_history": [{"role": "user", "content": "Olá"}],
+            "properties": [create_property_result()],
+        },
+        llm_service,
+    )
+
+    assert result["response"] == "Encontrei uma opção."
+    context = llm_service.generate_response.call_args.kwargs["properties_context"]
+    assert context[0]["id"] == 1
+    assert context[0]["price"] == "650000.00"
+
+
+def test_generate_response_node_falls_back_to_deterministic_question():
+    from app.agents.nodes import generate_response_node
+
+    llm_service = Mock()
+    llm_service.generate_response.side_effect = LLMClientError("indisponível")
+    question = "Qual é o valor máximo que você pretende investir?"
+    result = generate_response_node(
+        {
+            "message": "Quero um apartamento.",
+            "conversation_state": ConversationState(
+                conversation_id="agent-test-007",
+            ),
+            "qualification": ConversationQualification(
+                qualified=False, missing_fields=["max_price"],
+                next_question=question,
+            ),
+        },
+        llm_service,
+    )
+
+    assert result["response"] == question
+
+
+def test_generate_response_node_falls_back_when_search_has_no_results():
+    from app.agents.nodes import generate_response_node
+
+    llm_service = Mock()
+    llm_service.generate_response.side_effect = LLMClientError("indisponível")
+    result = generate_response_node(
+        {
+            "message": "Quais opções existem?",
+            "conversation_state": ConversationState(
+                conversation_id="agent-test-008",
+            ),
+            "qualification": ConversationQualification(
+                qualified=True, missing_fields=[],
+            ),
+            "properties": [],
+        },
+        llm_service,
+    )
+
+    assert "Não encontrei imóveis compatíveis" in result["response"]

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.database.session import get_db
 from app.database.conversation_repository import ConversationRepository
 from app.database.lead_repository import LeadRepository
@@ -21,6 +22,8 @@ from app.services.conversation_property_search_service import (
     ConversationPropertySearchService,
 )
 from app.services.embedding_service import EmbeddingService
+from app.services.llm_client import LLMClient
+from app.services.llm_service import LLMService
 from app.services.property_hybrid_search_service import (
     PropertyHybridSearchService,
 )
@@ -85,6 +88,13 @@ def process_conversation_turn(
         content=request.message,
     )
 
+    persisted_messages = persistence_service.get_messages(conversation)
+    conversation_history = [
+        {"role": message.role, "content": message.content}
+        for message in persisted_messages[:-1]
+        if message.role in {"user", "assistant"}
+    ][-6:]
+
     # ============================================================
     # Factory da infraestrutura de busca
     #
@@ -106,18 +116,29 @@ def process_conversation_turn(
             hybrid_search_service=hybrid_search_service,
         )
 
+    def llm_service_factory() -> LLMService:
+        return LLMService(
+            client=LLMClient(
+                base_url=settings.llm_base_url,
+                model=settings.llm_model,
+                timeout=settings.llm_timeout,
+            )
+        )
+
     # ============================================================
     # Agente SDR / LangGraph
     # ============================================================
 
     sdr_agent_service = SDRAgentService(
         property_search_service_factory=property_search_service_factory,
+        llm_service_factory=llm_service_factory,
     )
 
     turn_result = sdr_agent_service.process_turn(
         conversation_state=conversation_state,
         message=request.message,
         limit=request.limit,
+        conversation_history=conversation_history,
     )
 
     # ============================================================
@@ -140,6 +161,12 @@ def process_conversation_turn(
             exclude={"conversation_id"},
             mode="json",
         ),
+    )
+
+    persistence_service.save_message(
+        conversation=conversation,
+        role="assistant",
+        content=turn_result.response,
     )
 
     # ============================================================
@@ -176,6 +203,7 @@ def process_conversation_turn(
 
     return ConversationTurnResponse(
         conversation_id=turn_result.state.conversation_id,
+        response=turn_result.response,
         state=turn_result.state,
         qualification=turn_result.qualification,
         properties=properties,

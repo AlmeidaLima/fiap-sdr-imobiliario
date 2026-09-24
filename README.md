@@ -2021,6 +2021,41 @@ A regressão completa do backend ao final da implementação apresentou:
 
 ---
 
+### Missão 12 — Geração contextual de respostas com LLM
+
+**Status: Concluída**
+
+A resposta do agente passa a ser gerada pelo `LLMService` em um node comum do
+LangGraph:
+
+```text
+ask_question ────────┐
+                     ├──> generate_response -> END
+search_properties ───┘
+```
+
+A qualificação e a próxima pergunta continuam determinísticas. Para conversas
+qualificadas, a busca híbrida existente realiza o Retrieval e somente os imóveis
+recuperados são transformados em contexto controlado para a Generation. O LLM
+não recebe sessão, repositories, SQL, banco, embeddings ou funções de busca.
+
+O contexto inclui o `ConversationState`, a qualificação, no máximo os seis
+registros anteriores e os atributos permitidos dos imóveis recuperados. O
+histórico serve apenas para continuidade conversacional; `ConversationState` e
+`properties` permanecem as fontes factuais canônicas.
+
+Falhas de conexão, HTTP, timeout ou resposta inválida do LLM usam respostas
+determinísticas de fallback. A API preserva os campos anteriores, adiciona
+`response` e persiste toda resposta do assistente, inclusive fallbacks.
+
+Validação final da Missão 12:
+
+- [x] Regressão completa do backend executada
+- [x] 136 testes automatizados passando
+- [x] 185 warnings de depreciação identificados, sem falhas de teste
+
+---
+
     ## Próximas evoluções
 
     Com a base imobiliária estruturada, a busca híbrida, a interpretação determinística da intenção e a persistência conversacional implementadas, o projeto está preparado para evoluir para as próximas etapas do agente SDR.

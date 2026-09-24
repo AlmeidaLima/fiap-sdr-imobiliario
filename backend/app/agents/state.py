@@ -14,6 +14,7 @@ class AgentState(TypedDict, total=False):
     conversation_state: ConversationState
     qualification: ConversationQualification
 
+    conversation_history: list[dict[str, str]]
     properties: list
 
     response: str | None

@@ -5,6 +5,7 @@ from app.schemas.conversation import ConversationState, ConversationTurnResult
 from app.services.conversation_property_search_service import (
     ConversationPropertySearchService,
 )
+from app.services.llm_service import LLMService
 
 
 class SDRAgentService:
@@ -15,9 +16,11 @@ class SDRAgentService:
                 [],
                 ConversationPropertySearchService,
             ],
+            llm_service_factory: Callable[[], LLMService],
     ):
         self.graph = build_sdr_graph(
             property_search_service_factory=property_search_service_factory,
+            llm_service_factory=llm_service_factory,
         )
 
     def process_turn(
@@ -25,6 +28,7 @@ class SDRAgentService:
             conversation_state: ConversationState,
             message: str,
             limit: int = 5,
+            conversation_history: list[dict[str, str]] | None = None,
         ) -> ConversationTurnResult:
 
         initial_state: AgentState = {
@@ -32,6 +36,7 @@ class SDRAgentService:
             "message": message,
             "limit": limit,
             "conversation_state": conversation_state,
+            "conversation_history": (conversation_history or [])[-6:],
         }
 
         result = self.graph.invoke(initial_state)
@@ -40,4 +45,5 @@ class SDRAgentService:
             state=result["conversation_state"],
             qualification=result["qualification"],
             properties=result.get("properties", []),
+            response=result["response"],
         )

@@ -196,4 +196,8 @@ class ConversationService:
             state=updated_state,
             qualification=qualification,
             properties=properties,
+            response=(
+                qualification.next_question
+                or "Consulta de imóveis concluída."
+            ),
         )
