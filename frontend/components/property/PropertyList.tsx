@@ -3,12 +3,24 @@ import { PropertyCard } from "./PropertyCard";
 
 interface PropertyListProps {
   properties: PropertySearchResponse[];
+  showNoResults?: boolean;
 }
 
 export function PropertyList({
   properties,
+  showNoResults = false,
 }: PropertyListProps) {
     if (properties.length === 0) {
+        if (showNoResults) {
+            return (
+                <div className="flex h-full items-center justify-center bg-slate-50/50 p-8">
+                    <p className="text-center text-sm text-slate-600">
+                        Nenhum imóvel encontrado para os critérios atuais.
+                    </p>
+                </div>
+            );
+        }
+
         return (
             <div className="flex h-full items-center justify-center bg-slate-50/50 p-8">
                 <div className="max-w-md text-center">

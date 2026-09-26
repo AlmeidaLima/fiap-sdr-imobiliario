@@ -16,5 +16,21 @@ describe("PropertyList", () => {
                 "As melhores opções aparecerão aqui.",
             ),
         ).toBeInTheDocument();
+
+        expect(
+            screen.queryByText(
+                "Nenhum imóvel encontrado para os critérios atuais.",
+            ),
+        ).not.toBeInTheDocument();
+    });
+
+    it("exibe o estado de busca sem resultados", () => {
+        render(<PropertyList properties={[]} showNoResults />);
+
+        expect(
+            screen.getByText(
+                "Nenhum imóvel encontrado para os critérios atuais.",
+            ),
+        ).toBeInTheDocument();
     });
 });

@@ -48,14 +48,26 @@ describe("Chat", () => {
         name: "Enviar",
       }),
     ).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("heading", {
+        name: "Qualificação do lead",
+      }),
+    ).not.toBeInTheDocument();
   });
 
-  test("envia a mensagem e exibe a próxima pergunta do backend", async () => {
+  test("envia a mensagem e exibe a resposta do backend", async () => {
     mockedSendConversationTurn.mockResolvedValue({
       conversation_id: "conversation-test",
+      response: "Posso ajudar com isso. Qual é o seu orçamento máximo?",
       state: {
         conversation_id: "conversation-test",
         lead_name: null,
+        commercial_intent: "COMPRA",
+        urgency_days: null,
+        accepted_meeting_or_visit: false,
+        lead_score: 30,
+        lead_classification: "FRIO",
         neighborhood: "Boa Vista",
         min_price: null,
         max_price: null,
@@ -101,10 +113,19 @@ describe("Chat", () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          "Qual é o valor máximo que você pretende investir no imóvel?",
+          "Posso ajudar com isso. Qual é o seu orçamento máximo?",
         ),
       ).toBeInTheDocument();
     });
+
+    expect(
+      screen.queryByText(
+        "Qual é o valor máximo que você pretende investir no imóvel?",
+      ),
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByText("30 / 100")).toBeInTheDocument();
+    expect(screen.getByText("FRIO")).toBeInTheDocument();
 
     expect(
       mockedSendConversationTurn,
@@ -124,9 +145,15 @@ describe("Chat", () => {
     mockedSendConversationTurn
       .mockResolvedValueOnce({
         conversation_id: "conversation-test",
+        response: "Qual é o seu orçamento máximo?",
         state: {
           conversation_id: "conversation-test",
           lead_name: null,
+          commercial_intent: "COMPRA",
+          urgency_days: null,
+          accepted_meeting_or_visit: false,
+          lead_score: 30,
+          lead_classification: "FRIO",
           neighborhood: "Boa Vista",
           min_price: null,
           max_price: null,
@@ -146,12 +173,18 @@ describe("Chat", () => {
       })
       .mockResolvedValueOnce({
         conversation_id: "conversation-test",
+        response: "Agora me diga quantos quartos você procura.",
         state: {
           conversation_id: "conversation-test",
           lead_name: null,
+          commercial_intent: "COMPRA",
+          urgency_days: null,
+          accepted_meeting_or_visit: false,
+          lead_score: 50,
+          lead_classification: "MORNO",
           neighborhood: "Boa Vista",
           min_price: null,
-          max_price: 700000,
+          max_price: "700000",
           min_bedrooms: null,
           min_bathrooms: null,
           min_parking_spaces: null,
@@ -193,8 +226,10 @@ describe("Chat", () => {
     });
 
     await screen.findByText(
-      "Qual é o valor máximo que você pretende investir no imóvel?",
+      "Qual é o seu orçamento máximo?",
     );
+
+    expect(screen.getByText("30 / 100")).toBeInTheDocument();
 
     // Segundo turno
     fireEvent.change(input, {
@@ -216,8 +251,12 @@ describe("Chat", () => {
     });
 
     await screen.findByText(
-      "Quantos quartos você procura?",
+      "Agora me diga quantos quartos você procura.",
     );
+
+    expect(screen.getByText("50 / 100")).toBeInTheDocument();
+    expect(screen.getByText("MORNO")).toBeInTheDocument();
+    expect(screen.queryByText("30 / 100")).not.toBeInTheDocument();
 
     // Captura os requests enviados nos dois turnos
     const firstRequest =
@@ -249,12 +288,18 @@ describe("Chat", () => {
   test("exibe os imóveis retornados após a qualificação", async () => {
   mockedSendConversationTurn.mockResolvedValue({
     conversation_id: "conversation-test",
+    response: "Estas são as opções recuperadas para você.",
     state: {
       conversation_id: "conversation-test",
       lead_name: null,
+      commercial_intent: "COMPRA",
+      urgency_days: null,
+      accepted_meeting_or_visit: false,
+      lead_score: 50,
+      lead_classification: "MORNO",
       neighborhood: "Boa Vista",
       min_price: null,
-      max_price: 700000,
+      max_price: "700000",
       min_bedrooms: 3,
       min_bathrooms: null,
       min_parking_spaces: null,
@@ -277,7 +322,7 @@ describe("Chat", () => {
         bedrooms: 3,
         bathrooms: 2,
         parking_spaces: 1,
-        price: 671955,
+        price: "671955.00",
         similarity_score: 0.88,
       },
     ],
@@ -304,7 +349,7 @@ describe("Chat", () => {
   await waitFor(() => {
     expect(
       screen.getByText(
-        "Encontrei alguns imóveis que combinam com sua busca.",
+        "Estas são as opções recuperadas para você.",
       ),
     ).toBeInTheDocument();
   });
@@ -342,6 +387,58 @@ describe("Chat", () => {
     expect(
         screen.getByText("Compatibilidade com sua busca"),
     ).toBeInTheDocument();
+
+    expect(
+      screen.queryByText(
+        "Encontrei alguns imóveis que combinam com sua busca.",
+      ),
+    ).not.toBeInTheDocument();
+});
+test("exibe a resposta do backend quando qualificado sem imóveis", async () => {
+  mockedSendConversationTurn.mockResolvedValue({
+    conversation_id: "conversation-test",
+    response: "Não encontrei imóveis compatíveis com esses critérios.",
+    state: {
+      conversation_id: "conversation-test",
+      lead_name: null,
+      commercial_intent: "COMPRA",
+      urgency_days: null,
+      accepted_meeting_or_visit: false,
+      lead_score: 50,
+      lead_classification: "MORNO",
+      neighborhood: "Boa Vista",
+      min_price: null,
+      max_price: "700000",
+      min_bedrooms: 3,
+      min_bathrooms: null,
+      min_parking_spaces: null,
+      min_usable_area: null,
+      semantic_preferences: [],
+    },
+    qualification: {
+      qualified: true,
+      missing_fields: [],
+      next_question: null,
+    },
+    properties: [],
+  });
+
+  render(<Chat />);
+
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "Mensagem" }),
+    { target: { value: "Quero 3 quartos" } },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Enviar" }),
+  );
+
+  expect(
+    await screen.findByText(
+      "Não encontrei imóveis compatíveis com esses critérios.",
+    ),
+  ).toBeInTheDocument();
 });
 test("exibe loading e bloqueia novo envio enquanto aguarda o backend", async () => {
   mockedSendConversationTurn.mockImplementation(

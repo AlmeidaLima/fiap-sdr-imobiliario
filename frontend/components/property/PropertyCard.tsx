@@ -12,12 +12,12 @@ function formatQuantity(
     return `${quantity} ${quantity === 1 ? singular : plural}`;
 }
 
-function formatPrice(price: number): string {
+function formatPrice(price: string): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     maximumFractionDigits: 0,
-  }).format(price);
+  }).format(Number(price));
 }
 
 function formatSimilarity(score: number): string {

@@ -1526,7 +1526,7 @@
     Ou em segundo plano:
 
     ```bash
-    docker compose up -d --build
+    docker compose up --build -d
     ```
 
     ---
@@ -1536,6 +1536,175 @@
     ```bash
     docker compose ps
     ```
+
+    ---
+
+    ### LLM local para demonstração
+
+    No MVP do Hackathon, o frontend e o backend executam em Docker, enquanto o
+    servidor do modelo executa diretamente no host Windows:
+
+    ```text
+    Frontend Docker
+        ↓
+    Backend Docker
+        ↓
+    host.docker.internal:8080
+        ↓
+    llama-server no Windows
+    ```
+
+    O backend usa a API OpenAI-compatible de Chat Completions e envia requisições
+    para `POST {LLM_BASE_URL}/v1/chat/completions`. A implementação de referência
+    é o `llama-server` do llama.cpp, executado como serviço independente.
+
+    O modelo não faz parte do repositório. Arquivos `.gguf` não devem ser
+    versionados. O valor de `LLM_MODEL` deve corresponder ao nome ou alias exposto
+    pelo servidor.
+
+    Para o ambiente de demonstração validado no Windows, inicie o servidor com:
+
+    ```powershell
+    llama-server `
+      -hf ggml-org/Qwen3-4B-GGUF:Q4_K_M `
+      --alias local-model `
+      --host 0.0.0.0 `
+      --port 8080 `
+      --ctx-size 4096 `
+      --reasoning off
+    ```
+
+    O uso de `--reasoning off` é recomendado na demonstração porque reduz a
+    latência e ajuda a manter a resposta dentro do `LLM_TIMEOUT` configurado. O
+    tempo efetivo depende do hardware utilizado.
+
+    A URL depende de onde o backend está sendo executado:
+
+    ```text
+    Backend diretamente no Windows:
+    LLM_BASE_URL=http://localhost:8080
+
+    Backend pelo Docker Compose:
+    LLM_BASE_URL=http://host.docker.internal:8080
+    ```
+
+    No Docker Desktop para Windows, `host.docker.internal` resolve o host
+    automaticamente; não é necessário adicionar `extra_hosts`. As variáveis
+    `LLM_BASE_URL`, `LLM_MODEL` e `LLM_TIMEOUT` são repassadas pelo Compose e
+    permanecem configuráveis no arquivo `.env`.
+
+    #### Smoke test manual
+
+    1. Com o servidor iniciado no Windows, confirme a API OpenAI-compatible:
+
+       ```powershell
+       $body = @{
+           model = "local-model"
+           messages = @(
+               @{ role = "user"; content = "Responda apenas OK." }
+           )
+       } | ConvertTo-Json -Depth 4
+
+       Invoke-RestMethod `
+           -Method Post `
+           -Uri "http://localhost:8080/v1/chat/completions" `
+           -ContentType "application/json" `
+           -Body $body
+       ```
+
+       Substitua `local-model` pelo mesmo nome ou alias configurado em
+       `LLM_MODEL`.
+
+    2. Confirme a conectividade a partir do container backend:
+
+       ```bash
+       docker compose exec -T backend python -c "import os,httpx; url=os.environ['LLM_BASE_URL'].rstrip('/') + '/v1/chat/completions'; payload={'model':os.environ['LLM_MODEL'],'messages':[{'role':'user','content':'Responda apenas OK.'}]}; print(httpx.post(url,json=payload,timeout=float(os.environ['LLM_TIMEOUT'])).json())"
+       ```
+
+    3. Envie um turno pela aplicação:
+
+       ```powershell
+       $turn = @{
+           conversation_id = "smoke-llm-001"
+           message = "Quero comprar um apartamento no Boa Vista"
+           limit = 5
+       } | ConvertTo-Json
+
+       Invoke-RestMethod `
+           -Method Post `
+           -Uri "http://localhost:8000/api/v1/conversations/turn" `
+           -ContentType "application/json" `
+           -Body $turn
+       ```
+
+    Com o LLM ativo, o campo `response` deve conter a resposta contextual gerada.
+    Com o servidor indisponível, a mesma chamada continua retornando HTTP 200 com
+    fallback determinístico. `properties` continua vindo exclusivamente da busca
+    controlada, e o fallback não fabrica imóveis.
+
+    #### Checklist de demonstração
+
+    1. Confirme que o Docker Desktop está ativo.
+    2. Construa e inicie o ambiente completo:
+
+       ```bash
+       docker compose up --build -d
+       ```
+
+    3. Confirme os serviços:
+
+       ```bash
+       docker compose ps
+       ```
+
+    4. Confirme o backend em `http://localhost:8000/api/v1/health`.
+    5. Inicie o `llama-server` com o comando validado acima.
+    6. Confirme que o alias servido é `local-model`.
+    7. Abra o frontend em `http://localhost:3000`.
+    8. Atualize a página antes de iniciar, para gerar uma conversa limpa.
+    9. Não atualize a página durante o roteiro: o frontend ainda não reidrata
+       visualmente uma conversa após o refresh.
+    10. Envie, na ordem, exatamente as quatro mensagens do roteiro validado abaixo.
+
+    #### Roteiro E2E validado
+
+    1. `Olá, meu nome é Rafael e estou procurando um apartamento para comprar.`
+
+       Resultado esperado: nome `Rafael`, intenção `COMPRA`, score `20 / FRIO`,
+       conversa ainda não qualificada e solicitação da região.
+
+    2. `Preciso em 30 dias. Procuro no Boa Vista`
+
+       Resultado esperado: região `Boa Vista`, urgência de 30 dias, score
+       `55 / MORNO`, sem busca de imóveis e solicitação do orçamento. Como a
+       busca ainda não ocorreu, o agente não deve afirmar ausência de resultados.
+
+    3. `Meu orçamento é até 400 mil`
+
+       Resultado esperado: orçamento máximo `400000`, score `75 / QUENTE`,
+       conversa ainda não qualificada e solicitação da quantidade de quartos.
+
+    4. `Quero pelo menos 3 quartos`
+
+       Resultado esperado: mínimo de 3 quartos, score `75 / QUENTE`,
+       `qualified=true`, busca executada e cinco imóveis compatíveis exibidos.
+
+    A progressão demonstrada é:
+
+    ```text
+    20 / FRIO
+        ↓
+    55 / MORNO
+        ↓
+    75 / QUENTE
+        ↓
+    qualified=true + imóveis
+    ```
+
+    Na validação realizada, um dos cards exibiu um apartamento no Boa Vista por
+    `R$ 279.990`, com 3 quartos, 1 banheiro, 73 m² e 1 vaga. Se o LLM ficar
+    indisponível ou exceder o timeout, o fallback determinístico preserva o fluxo
+    e os imóveis reais recuperados pela busca controlada.
 
     ---
 
@@ -2123,6 +2292,30 @@ Validação final da Missão 13:
 - [x] 194 testes coletados e aprovados
 - [x] 0 falhas e 0 skips
 - [x] `git diff --check` aprovado
+
+---
+
+### Missão 14 — Experiência integrada e ambiente demonstrável
+
+**Status: Concluída**
+
+A interface passou a consumir a resposta canônica do SDR, apresentar os imóveis
+recuperados e exibir o estado factual da qualificação, incluindo score e
+classificação. Os estados de carregamento, erro, recuperação e busca sem
+resultados foram protegidos sem duplicar regras de negócio no frontend.
+
+O ambiente de demonstração utiliza frontend, backend e PostgreSQL/pgvector no
+Docker Compose, com `llama-server` no host Windows. O fluxo E2E foi validado em
+quatro turnos, cobrindo memória, qualificação comercial, Lead Score, routing,
+busca híbrida, resposta contextual/fallback e apresentação de cinco imóveis.
+
+- [x] Contrato frontend/backend sincronizado
+- [x] Resposta do backend usada como fala canônica do agente
+- [x] Score, classificação e critérios visíveis no frontend
+- [x] Loading, erros, recuperação e zero resultados tratados
+- [x] LLM local OpenAI-compatible acessível pelo backend Docker
+- [x] Busca não executada diferenciada de busca sem resultados no contexto do LLM
+- [x] Roteiro E2E real validado pelo navegador
 
 ---
 

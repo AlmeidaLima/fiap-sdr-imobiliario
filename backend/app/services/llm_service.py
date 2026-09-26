@@ -39,6 +39,30 @@ class LLMService:
         history = (conversation_history or [])[-6:]
         properties = properties_context or []
 
+        if not qualification.qualified:
+            search_status = "NAO_EXECUTADA"
+            search_instruction = (
+                "A busca de imóveis ainda não foi executada. Faça somente "
+                "a próxima pergunta indicada pela qualificação, podendo "
+                "contextualizar brevemente os dados já informados. Nunca diga "
+                "que não encontrou imóveis ou que a busca retornou zero "
+                "resultados."
+            )
+        elif not properties:
+            search_status = "EXECUTADA_SEM_RESULTADOS"
+            search_instruction = (
+                "A busca de imóveis foi executada e nenhum imóvel compatível "
+                "foi recuperado. Informe a ausência de resultados sem inventar "
+                "imóveis."
+            )
+        else:
+            search_status = "EXECUTADA_COM_RESULTADOS"
+            search_instruction = (
+                "A busca de imóveis foi executada. Apresente e contextualize "
+                "somente os imóveis presentes em imoveis_recuperados, sem "
+                "inventar imóveis, preços ou atributos."
+            )
+
         controlled_context = {
             "mensagem_atual": user_message,
             "estado_factual": conversation_state.model_dump(
@@ -47,6 +71,7 @@ class LLMService:
                 mode="json",
             ),
             "qualificacao": qualification.model_dump(mode="json"),
+            "situacao_busca": search_status,
             "imoveis_recuperados": properties,
         }
 
@@ -64,11 +89,10 @@ class LLMService:
                 "role": "user",
                 "content": (
                     "Gere a resposta ao lead usando somente o contexto "
-                    "controlado abaixo. Se a conversa não estiver qualificada, "
-                    "faça a próxima pergunta indicada, com formulação natural. "
-                    "Se estiver qualificada, apresente somente os imóveis "
-                    "recuperados. Se a lista estiver vazia, informe que nenhum "
-                    "imóvel compatível foi encontrado.\n\n"
+                    "controlado abaixo. Siga exclusivamente a regra correspondente "
+                    "a situacao_busca: "
+                    + search_instruction
+                    + "\n\n"
                     + json.dumps(
                         controlled_context,
                         ensure_ascii=False,

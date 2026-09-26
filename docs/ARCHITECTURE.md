@@ -678,6 +678,36 @@ Modelo local
 
 Isso permite trocar futuramente o modelo ou o mecanismo de inferência sem alterar toda a aplicação.
 
+Para o MVP do Hackathon, o `llama-server` executa no host Windows e o backend
+executa em Docker. O backend acessa a API OpenAI-compatible por
+`http://host.docker.internal:8080/v1/chat/completions`. Modelo, URL e timeout
+permanecem configuráveis por variáveis de ambiente, e o modelo não é versionado
+no repositório. A execução do LLM como serviço do Docker Compose poderá ser
+avaliada futuramente, após a escolha do modelo e a validação dos requisitos de
+hardware.
+
+Para o ambiente de demonstração validado, recomenda-se iniciar o `llama-server`
+com `--reasoning off` para reduzir a latência e aumentar a chance de conclusão
+dentro do `LLM_TIMEOUT` configurado.
+
+O ambiente E2E validado mantém `frontend`, `backend` e PostgreSQL/pgvector no
+Docker Compose, enquanto o `llama-server` executa no host. O fluxo completo foi
+confirmado pelo navegador, incluindo persistência entre turnos, qualificação,
+Lead Score, busca híbrida, geração contextual ou fallback e apresentação dos
+imóveis recuperados.
+
+Na geração, o contexto controlado diferencia explicitamente três situações:
+
+```text
+NAO_EXECUTADA
+EXECUTADA_SEM_RESULTADOS
+EXECUTADA_COM_RESULTADOS
+```
+
+Uma conversa não qualificada segue para a próxima pergunta sem declarar ausência
+de imóveis. Somente uma busca efetivamente executada e vazia pode ser apresentada
+como busca sem resultados.
+
 ---
 
 ## 8. Qualificação do Lead
@@ -1314,6 +1344,13 @@ Deverão validar:
 ### Testes E2E
 
 Deverão validar poucos fluxos críticos completos.
+
+Para o MVP, foi validado manualmente o fluxo real Next.js → FastAPI → LangGraph
+→ PostgreSQL/pgvector → llama-server → frontend. O roteiro de demonstração
+mantém o mesmo `conversation_id` durante quatro turnos e evolui o lead de
+`20 / FRIO` para `55 / MORNO`, depois `75 / QUENTE`, até a qualificação e a
+exibição dos imóveis. A página não deve ser atualizada durante esse roteiro,
+pois o frontend ainda não reidrata visualmente a conversa persistida.
 
 Exemplo:
 

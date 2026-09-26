@@ -17,7 +17,7 @@ function createProperty(
         bedrooms: 1,
         bathrooms: 1,
         parking_spaces: 1,
-        price: 279990,
+        price: "279990.00",
         similarity_score: 0.88,
         ...overrides,
     };
@@ -50,5 +50,17 @@ describe("PropertyCard", () => {
         expect(screen.getByText("3 quartos")).toBeInTheDocument();
         expect(screen.getByText("2 banheiros")).toBeInTheDocument();
         expect(screen.getByText("2 vagas")).toBeInTheDocument();
+    });
+
+    it("formata como reais o preço serializado como string", () => {
+        render(
+            <PropertyCard
+                property={createProperty({
+                    price: "671955.00",
+                })}
+            />,
+        );
+
+        expect(screen.getByText("R$ 671.955")).toBeInTheDocument();
     });
 });

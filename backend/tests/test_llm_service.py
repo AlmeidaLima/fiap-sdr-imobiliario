@@ -141,12 +141,66 @@ def test_generate_response_includes_deterministic_next_question():
         ),
     )
 
-    context = json.loads(
-        client.messages[-1]["content"].split("\n\n", 1)[1]
+    instruction, serialized_context = (
+        client.messages[-1]["content"].split("\n\n", 1)
     )
+    context = json.loads(serialized_context)
 
     assert context["qualificacao"]["next_question"] == question
+    assert context["situacao_busca"] == "NAO_EXECUTADA"
     assert context["imoveis_recuperados"] == []
+    assert "busca de imóveis ainda não foi executada" in instruction.lower()
+    assert "próxima pergunta" in instruction.lower()
+    assert "nunca diga que não encontrou imóveis" in instruction.lower()
+
+
+def test_generate_response_marks_search_without_results():
+    client = FakeLLMClient()
+    service = LLMService(client=client)
+
+    service.generate_response(
+        user_message="Quais opções você encontrou?",
+        properties_context=[],
+        **create_context(),
+    )
+
+    instruction, serialized_context = (
+        client.messages[-1]["content"].split("\n\n", 1)
+    )
+    context = json.loads(serialized_context)
+
+    assert context["situacao_busca"] == "EXECUTADA_SEM_RESULTADOS"
+    assert context["imoveis_recuperados"] == []
+    assert "busca de imóveis foi executada" in instruction.lower()
+    assert "ausência de resultados" in instruction.lower()
+    assert "sem inventar imóveis" in instruction.lower()
+
+
+def test_generate_response_marks_search_with_results():
+    client = FakeLLMClient()
+    service = LLMService(client=client)
+    property_context = {
+        "id": 10,
+        "price": "650000.00",
+        "bedrooms": 3,
+    }
+
+    service.generate_response(
+        user_message="Quais opções você encontrou?",
+        properties_context=[property_context],
+        **create_context(),
+    )
+
+    instruction, serialized_context = (
+        client.messages[-1]["content"].split("\n\n", 1)
+    )
+    context = json.loads(serialized_context)
+
+    assert context["situacao_busca"] == "EXECUTADA_COM_RESULTADOS"
+    assert context["imoveis_recuperados"] == [property_context]
+    assert "busca de imóveis foi executada" in instruction.lower()
+    assert "somente os imóveis presentes" in instruction.lower()
+    assert "sem inventar imóveis, preços ou atributos" in instruction.lower()
 
 def test_generate_response_propagates_llm_client_error():
     class FailingLLMClient:

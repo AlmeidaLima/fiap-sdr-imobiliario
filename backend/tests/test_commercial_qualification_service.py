@@ -86,3 +86,40 @@ def test_question_about_visit_is_not_acceptance(service):
 def test_does_not_extract_negated_acceptance(service, message):
     result = service.extract(message)
     assert result.accepted_meeting_or_visit is False
+
+
+@pytest.mark.parametrize(
+    ("message", "expected_intent"),
+    [
+        ("Estou procurando um apartamento para comprar.", "COMPRA"),
+        ("Estou procurando um apartamento para alugar.", "ALUGUEL"),
+        ("Estou procurando um imóvel para investir.", "INVESTIMENTO"),
+        (
+            "Olá, meu nome é Rafael e estou procurando "
+            "um apartamento para comprar.",
+            "COMPRA",
+        ),
+    ],
+)
+def test_extracts_commercial_intent_from_estou_procurando(
+        service,
+        message,
+        expected_intent,
+):
+    result = service.extract(message)
+    assert result.commercial_intent == expected_intent
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Não estou procurando um apartamento para comprar.",
+        "Procurando um apartamento para comprar.",
+    ],
+)
+def test_estou_procurando_preserves_existing_intent_guardrails(
+        service,
+        message,
+):
+    result = service.extract(message)
+    assert result.commercial_intent == "INDEFINIDO"
