@@ -170,3 +170,37 @@ def test_sdr_graph_preserves_state_across_multiple_turns():
 
     property_search_service.search.assert_called_once()
     property_search_service_factory.assert_called_once()
+
+
+def test_sdr_graph_processes_name_and_commercial_intent_without_searching():
+    property_search_service = Mock()
+    property_search_service_factory = Mock(
+        return_value=property_search_service,
+    )
+    graph = build_sdr_graph(
+        property_search_service_factory=property_search_service_factory,
+        llm_service_factory=FakeLLMService,
+    )
+
+    result = graph.invoke(
+        {
+            "conversation_id": "graph-combined-identification",
+            "message": (
+                "Olá, meu nome é Rafael e estou procurando "
+                "um apartamento para comprar."
+            ),
+        }
+    )
+
+    assert result["conversation_state"].lead_name == "Rafael"
+    assert result["conversation_state"].commercial_intent == "COMPRA"
+    assert result["conversation_state"].lead_score == 20
+    assert result["conversation_state"].lead_classification == "FRIO"
+    assert result["qualification"].qualified is False
+    assert result["qualification"].missing_fields == [
+        "neighborhood",
+        "max_price",
+        "min_bedrooms",
+    ]
+    property_search_service.search.assert_not_called()
+    property_search_service_factory.assert_not_called()

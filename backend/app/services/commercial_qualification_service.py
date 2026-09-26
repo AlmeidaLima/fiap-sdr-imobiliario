@@ -24,17 +24,17 @@ class CommercialQualificationService:
     INTENT_PATTERNS = (
         (
             "INVESTIMENTO",
-            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo)\b"
+            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo|estou procurando)\b"
             r"[^.!?]*\b(?:investimento|investir)\b",
         ),
         (
             "ALUGUEL",
-            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo)\b"
+            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo|estou procurando)\b"
             r"[^.!?]*\b(?:alugar|aluguel|locar|locacao)\b",
         ),
         (
             "COMPRA",
-            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo)\b"
+            r"(?<!nao )\b(?:quero|procuro|pretendo|desejo|estou procurando)\b"
             r"[^.!?]*\b(?:comprar|compra)\b",
         ),
     )

@@ -3,8 +3,13 @@
 import { useState } from "react";
 
 import { sendConversationTurn } from "../../services/conversationService";
-import type { ChatMessage } from "../../types/conversation";
+import type {
+  ChatMessage,
+  ConversationQualification,
+  ConversationState,
+} from "../../types/conversation";
 import type { PropertySearchResponse } from "../../types/property";
+import { LeadQualificationPanel } from "../lead/LeadQualificationPanel";
 import { PropertyList } from "../property/PropertyList";
 import { ChatHeader } from "./ChatHeader";
 import { LoadingIndicator } from "./LoadingIndicator";
@@ -28,6 +33,14 @@ export function Chat() {
   const [properties, setProperties] = useState<
     PropertySearchResponse[]
   >([]);
+
+  const [conversationState, setConversationState] = useState<
+    ConversationState | null
+  >(null);
+
+  const [qualification, setQualification] = useState<
+    ConversationQualification | null
+  >(null);
 
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,34 +72,19 @@ export function Chat() {
       });
 
       setProperties(response.properties);
+      setConversationState(response.state);
+      setQualification(response.qualification);
 
-      if (response.qualification.next_question) {
-        const assistantMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: response.qualification.next_question,
-        };
+      const assistantMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: response.response,
+      };
 
-        setMessages((currentMessages) => [
-          ...currentMessages,
-          assistantMessage,
-        ]);
-      } else if (
-        response.qualification.qualified &&
-        response.properties.length > 0
-      ) {
-        const assistantMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content:
-            "Encontrei alguns imóveis que combinam com sua busca.",
-        };
-
-        setMessages((currentMessages) => [
-          ...currentMessages,
-          assistantMessage,
-        ]);
-      }
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        assistantMessage,
+      ]);
     } catch {
       setError(
         "Não foi possível enviar sua mensagem. Tente novamente.",
@@ -136,7 +134,13 @@ export function Chat() {
 
           {/* Painel dos imóveis */}
           <div className="min-h-0 flex-1 overflow-y-auto md:w-3/5">
-            <PropertyList properties={properties} />
+            {conversationState && (
+              <LeadQualificationPanel state={conversationState} />
+            )}
+            <PropertyList
+              properties={properties}
+              showNoResults={qualification?.qualified === true}
+            />
           </div>
         </div>
       </section>

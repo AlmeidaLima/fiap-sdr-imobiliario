@@ -3,11 +3,19 @@ import re
 
 class LeadIdentificationService:
 
+    NAME_TERMINATOR = (
+        r"(?=\s+e\s+(?:estou|quero|procuro|preciso)\b|[,.;!?]|$)"
+    )
+
     NAME_PATTERNS = [
-        r"\bmeu nome é\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*)",
-        r"\bmeu nome e\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*)",
-        r"\bsou\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*)",
-        r"\bpode me chamar de\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*)",
+        r"\bmeu nome é\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*?)"
+        + NAME_TERMINATOR,
+        r"\bmeu nome e\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*?)"
+        + NAME_TERMINATOR,
+        r"\bsou\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*?)"
+        + NAME_TERMINATOR,
+        r"\bpode me chamar de\s+([A-Za-zÀ-ÿ]+(?:\s+[A-Za-zÀ-ÿ]+)*?)"
+        + NAME_TERMINATOR,
     ]
 
     def extract_name(
@@ -38,4 +46,3 @@ class LeadIdentificationService:
             word.capitalize()
             for word in name.split()
         )
-    

@@ -255,3 +255,21 @@ def test_process_message_preserves_commercial_data_for_non_evidence(message):
     assert updated_state.commercial_intent == "COMPRA"
     assert updated_state.urgency_days == 30
     assert updated_state.accepted_meeting_or_visit is True
+
+
+def test_process_message_extracts_name_and_commercial_intent_together():
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="combined-lead-identification",
+    )
+
+    updated_state = service.process_message(
+        state=state,
+        message=(
+            "Olá, meu nome é Rafael e estou procurando "
+            "um apartamento para comprar."
+        ),
+    )
+
+    assert updated_state.lead_name == "Rafael"
+    assert updated_state.commercial_intent == "COMPRA"

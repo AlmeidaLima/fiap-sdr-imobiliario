@@ -28,6 +28,9 @@ services:
 
     environment:
       DATABASE_URL: ${DATABASE_URL}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:8080}
+      LLM_MODEL: ${LLM_MODEL:-local-model}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-30}
 
     volumes:
       - ./data:/app/data:ro

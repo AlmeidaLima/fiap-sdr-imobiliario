@@ -11,7 +11,7 @@ export interface PropertySearchResponse {
   bathrooms: number;
   parking_spaces: number | null;
 
-  price: number;
+  price: string;
 
   similarity_score: number;
 }

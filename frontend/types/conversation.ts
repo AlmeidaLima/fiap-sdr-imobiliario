@@ -5,10 +5,25 @@ export interface ConversationState {
 
   lead_name: string | null;
 
+  commercial_intent:
+    | "COMPRA"
+    | "ALUGUEL"
+    | "INVESTIMENTO"
+    | "INDEFINIDO"
+    | null;
+
+  urgency_days: number | null;
+
+  accepted_meeting_or_visit: boolean;
+
+  lead_score: number;
+
+  lead_classification: "FRIO" | "MORNO" | "QUENTE";
+
   neighborhood: string | null;
 
-  min_price: number | null;
-  max_price: number | null;
+  min_price: string | null;
+  max_price: string | null;
 
   min_bedrooms: number | null;
   min_bathrooms: number | null;
@@ -27,11 +42,13 @@ export interface ConversationQualification {
 export interface ConversationTurnRequest {
   conversation_id: string;
   message: string;
+  state?: ConversationState | null;
   limit?: number;
 }
 
 export interface ConversationTurnResponse {
   conversation_id: string;
+  response: string;
   state: ConversationState;
   qualification: ConversationQualification;
   properties: PropertySearchResponse[];
