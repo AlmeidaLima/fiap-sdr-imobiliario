@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { PropertyCard } from "../components/property/PropertyCard";
 import type { PropertySearchResponse } from "../types/property";
@@ -62,5 +62,79 @@ describe("PropertyCard", () => {
         );
 
         expect(screen.getByText("R$ 671.955")).toBeInTheDocument();
+    });
+
+    it("envia o id interno ao selecionar o imóvel", () => {
+        const onSelect = vi.fn();
+        render(
+            <PropertyCard
+                property={createProperty({
+                    id: 42,
+                    external_id: "external-999",
+                })}
+                onSelect={onSelect}
+            />,
+        );
+
+        const button = screen.getByRole("button", {
+            name: /Tenho interesse em Apartamento em Boa Vista/,
+        });
+        expect(button).toHaveTextContent("Tenho interesse");
+
+        fireEvent.click(button);
+
+        expect(onSelect).toHaveBeenCalledOnce();
+        expect(onSelect).toHaveBeenCalledWith(42);
+        expect(onSelect).not.toHaveBeenCalledWith("external-999");
+    });
+
+    it("apresenta o estado confirmado e desabilita a ação", () => {
+        render(
+            <PropertyCard
+                property={createProperty()}
+                onSelect={vi.fn()}
+                isSelected
+            />,
+        );
+
+        const button = screen.getByRole("button", {
+            name: /Imóvel selecionado/,
+        });
+        expect(button).toHaveTextContent("Selecionado");
+        expect(button).toBeDisabled();
+        expect(button).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("apresenta visita agendada sem nova ação após persistência", () => {
+        const onSelect = vi.fn();
+        render(
+            <PropertyCard
+                property={createProperty()}
+                onSelect={onSelect}
+                isSelected
+                appointmentPersisted
+            />,
+        );
+
+        const button = screen.getByRole("button", {
+            name: /Visita agendada/,
+        });
+        expect(button).toHaveTextContent("Visita agendada");
+        expect(button).toBeDisabled();
+        expect(screen.queryByText("Tenho interesse")).not.toBeInTheDocument();
+        fireEvent.click(button);
+        expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it("desabilita a ação durante o processamento", () => {
+        render(
+            <PropertyCard
+                property={createProperty()}
+                onSelect={vi.fn()}
+                selectionDisabled
+            />,
+        );
+
+        expect(screen.getByRole("button")).toBeDisabled();
     });
 });

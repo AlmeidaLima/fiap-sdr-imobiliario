@@ -195,7 +195,7 @@ def test_process_message_preserves_commercial_data_between_turns():
     assert updated_state.urgency_days == 60
 
 
-def test_process_message_preserves_meeting_or_visit_acceptance():
+def test_process_message_clears_legacy_acceptance_without_appointment():
     service = ConversationService()
     state = ConversationState(
         conversation_id="commercial-qualification-003",
@@ -207,7 +207,46 @@ def test_process_message_preserves_meeting_or_visit_acceptance():
         message="Como funciona a visita?",
     )
 
+    assert updated_state.accepted_meeting_or_visit is False
+
+
+def test_process_message_preserves_acceptance_backed_by_appointment():
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="commercial-qualification-with-appointment",
+        appointment_id=123,
+        accepted_meeting_or_visit=True,
+    )
+
+    updated_state = service.process_message(
+        state=state,
+        message="Como funciona a visita?",
+    )
+
+    assert updated_state.appointment_id == 123
     assert updated_state.accepted_meeting_or_visit is True
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Quero visitar",
+        "Quero marcar uma visita",
+        "Podemos agendar uma visita",
+        "Aceito uma visita",
+        "Não quero visitar",
+        "Como funciona a visita?",
+    ],
+)
+def test_process_message_does_not_activate_acceptance_from_text(message):
+    service = ConversationService()
+    state = ConversationState(
+        conversation_id="commercial-acceptance-requires-appointment",
+    )
+
+    updated_state = service.process_message(state=state, message=message)
+
+    assert updated_state.accepted_meeting_or_visit is False
 
 
 def test_process_message_does_not_replace_urgency_with_zero():
@@ -244,6 +283,7 @@ def test_process_message_preserves_commercial_data_for_non_evidence(message):
         conversation_id="commercial-qualification-005",
         commercial_intent="COMPRA",
         urgency_days=30,
+        appointment_id=123,
         accepted_meeting_or_visit=True,
     )
 

@@ -1,5 +1,9 @@
 from fastapi import APIRouter
 
+from app.api.routes.appointments import (
+    router as appointments_router,
+)
+
 from app.api.routes.conversations import (
     router as conversations_router,
 )
@@ -16,6 +20,7 @@ from app.api.routes.properties import (
 
 api_router = APIRouter()
 
+api_router.include_router(appointments_router)
 api_router.include_router(health_router)
 api_router.include_router(info_router)
 api_router.include_router(properties_router)

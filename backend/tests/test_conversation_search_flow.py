@@ -1,4 +1,5 @@
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.schemas.conversation import ConversationState
@@ -64,3 +65,27 @@ def test_searches_properties_when_conversation_becomes_qualified():
     assert searched_state.neighborhood == "Boa Vista"
     assert searched_state.max_price == Decimal("700000")
     assert searched_state.min_bedrooms == 3
+
+
+def test_search_records_presented_property_ids_in_conversation_state():
+    property_search_service = Mock()
+    first_property = SimpleNamespace(property=SimpleNamespace(id=20))
+    second_property = SimpleNamespace(property=SimpleNamespace(id=10))
+    property_search_service.search.return_value = [
+        (first_property, 0.95),
+        (second_property, 0.90),
+        (first_property, 0.85),
+    ]
+    service = ConversationService(
+        property_search_service=property_search_service,
+    )
+    state = ConversationState(
+        conversation_id="search-flow-003",
+        neighborhood="Boa Vista",
+        max_price=Decimal("700000"),
+        min_bedrooms=3,
+    )
+
+    result = service.process_turn(state, "Prefiro churrasqueira")
+
+    assert result.state.presented_property_ids == [20, 10]

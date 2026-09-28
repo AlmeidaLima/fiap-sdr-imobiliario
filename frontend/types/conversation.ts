@@ -31,6 +31,23 @@ export interface ConversationState {
   min_usable_area: number | null;
 
   semantic_preferences: string[];
+
+  presented_property_ids: number[];
+  selected_property_id: number | null;
+
+  appointment_stage:
+    | "NONE"
+    | "SELECTED"
+    | "AWAITING_TYPE"
+    | "AWAITING_DATE"
+    | "AWAITING_TIME"
+    | "AWAITING_CONFIRMATION"
+    | "CONFIRMED"
+    | "CANCELLED";
+  appointment_type: "VISITA" | "REUNIAO" | null;
+  appointment_date: string | null;
+  appointment_time: string | null;
+  appointment_id: number | null;
 }
 
 export interface ConversationQualification {
@@ -43,6 +60,7 @@ export interface ConversationTurnRequest {
   conversation_id: string;
   message: string;
   state?: ConversationState | null;
+  selected_property_id?: number | null;
   limit?: number;
 }
 

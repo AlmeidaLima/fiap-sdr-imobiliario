@@ -7,9 +7,9 @@ from app.schemas.conversation import ConversationQualification, ConversationStat
 from app.services.llm_client import LLMClientError
 
 
-def create_property_result():
+def create_property_result(property_id=1):
     property_model = SimpleNamespace(
-        id=1, external_id="property-1", title="Apartamento teste",
+        id=property_id, external_id=f"property-{property_id}", title="Apartamento teste",
         description="Imóvel com área de lazer", neighborhood="Boa Vista",
         usable_area=80, bedrooms=3, bathrooms=2, parking_spaces=1,
         price=Decimal("650000.00"),
@@ -184,10 +184,7 @@ def test_search_properties_node_uses_property_search_service():
         min_bedrooms=3,
     )
 
-    expected_properties = [
-        ("property-1", 0.95),
-        ("property-2", 0.90),
-    ]
+    expected_properties = [create_property_result()]
 
     property_search_service = Mock()
     property_search_service.search.return_value = expected_properties
@@ -202,11 +199,117 @@ def test_search_properties_node_uses_property_search_service():
     )
 
     assert result["properties"] == expected_properties
+    assert result["conversation_state"].presented_property_ids == [1]
 
     property_search_service.search.assert_called_once_with(
         conversation_state,
         limit=5,
     )
+
+
+def test_search_properties_node_deduplicates_presented_property_ids():
+    from app.agents.nodes import search_properties_node
+
+    conversation_state = ConversationState(
+        conversation_id='agent-search-deduplicate',
+    )
+    property_search_service = Mock()
+    property_search_service.search.return_value = [
+        create_property_result(),
+        create_property_result(),
+    ]
+
+    result = search_properties_node(
+        {'conversation_state': conversation_state},
+        property_search_service,
+    )
+
+    assert result['conversation_state'].presented_property_ids == [1]
+
+
+def test_search_without_results_clears_presented_properties_and_selection():
+    from app.agents.nodes import search_properties_node
+
+    conversation_state = ConversationState(
+        conversation_id='agent-search-empty',
+        presented_property_ids=[1],
+        selected_property_id=1,
+    )
+    property_search_service = Mock()
+    property_search_service.search.return_value = []
+
+    result = search_properties_node(
+        {'conversation_state': conversation_state},
+        property_search_service,
+    )
+
+    updated_state = result['conversation_state']
+    assert updated_state.presented_property_ids == []
+    assert updated_state.selected_property_id is None
+    assert updated_state.appointment_stage == "NONE"
+
+
+def test_new_search_preserves_selection_still_presented():
+    from app.agents.nodes import search_properties_node
+
+    conversation_state = ConversationState(
+        conversation_id='agent-search-preserve-selection',
+        presented_property_ids=[1, 2],
+        selected_property_id=1,
+    )
+    property_search_service = Mock()
+    property_search_service.search.return_value = [create_property_result()]
+
+    result = search_properties_node(
+        {'conversation_state': conversation_state},
+        property_search_service,
+    )
+
+    updated_state = result['conversation_state']
+    assert updated_state.presented_property_ids == [1]
+    assert updated_state.selected_property_id == 1
+
+
+def test_new_search_clears_selection_no_longer_presented():
+    from app.agents.nodes import search_properties_node
+
+    conversation_state = ConversationState(
+        conversation_id='agent-search-clear-selection',
+        presented_property_ids=[1],
+        selected_property_id=1,
+    )
+    property_search_service = Mock()
+    property_search_service.search.return_value = [
+        create_property_result(property_id=2),
+    ]
+
+    result = search_properties_node(
+        {'conversation_state': conversation_state},
+        property_search_service,
+    )
+
+    updated_state = result['conversation_state']
+    assert updated_state.presented_property_ids == [2]
+    assert updated_state.selected_property_id is None
+    assert updated_state.appointment_stage == "NONE"
+
+
+def test_turn_without_search_preserves_presented_properties():
+    state = {
+        'conversation_id': 'agent-no-search',
+        'message': 'Meu nome e Rafael',
+        'conversation_state': ConversationState(
+            conversation_id='agent-no-search',
+            presented_property_ids=[1, 2],
+            selected_property_id=1,
+        ),
+    }
+
+    result = process_message_node(state)
+
+    updated_state = result['conversation_state']
+    assert updated_state.presented_property_ids == [1, 2]
+    assert updated_state.selected_property_id == 1
 
 
 def test_generate_response_node_uses_controlled_context():

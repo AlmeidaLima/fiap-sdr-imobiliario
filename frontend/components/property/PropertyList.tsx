@@ -4,11 +4,19 @@ import { PropertyCard } from "./PropertyCard";
 interface PropertyListProps {
   properties: PropertySearchResponse[];
   showNoResults?: boolean;
+  onSelect?: (propertyId: number) => void;
+  selectedPropertyId?: number | null;
+  appointmentPersisted?: boolean;
+  selectionDisabled?: boolean;
 }
 
 export function PropertyList({
   properties,
   showNoResults = false,
+  onSelect,
+  selectedPropertyId = null,
+  appointmentPersisted = false,
+  selectionDisabled = false,
 }: PropertyListProps) {
     if (properties.length === 0) {
         if (showNoResults) {
@@ -87,6 +95,12 @@ export function PropertyList({
           <PropertyCard
             key={property.id}
             property={property}
+            onSelect={onSelect}
+            isSelected={selectedPropertyId === property.id}
+            appointmentPersisted={
+              appointmentPersisted && selectedPropertyId === property.id
+            }
+            selectionDisabled={selectionDisabled}
           />
         ))}
       </div>

@@ -64,11 +64,17 @@ def test_extracts_urgency_days(service, message, expected_days):
         "Sim, podemos marcar uma visita",
         "Quero visitar o imóvel",
         "Podemos marcar uma reunião",
+        "Quero marcar uma visita",
+        "Podemos agendar uma visita",
+        "Aceito uma visita",
     ],
 )
-def test_extracts_explicit_meeting_or_visit_acceptance(service, message):
+def test_textual_interest_does_not_activate_commercial_acceptance(
+        service,
+        message,
+):
     result = service.extract(message)
-    assert result.accepted_meeting_or_visit is True
+    assert result.accepted_meeting_or_visit is False
 
 
 def test_question_about_visit_is_not_acceptance(service):
