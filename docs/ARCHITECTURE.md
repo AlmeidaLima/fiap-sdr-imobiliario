@@ -1660,3 +1660,37 @@ A arquitetura final planejada pode ser representada como:
 ```
 
 Essa arquitetura deverá permitir que a POC demonstre o fluxo completo de um **Agente SDR Imobiliário com IA**, mantendo separação clara entre interface, regras de negócio, inteligência artificial, recuperação de conhecimento, persistência e integrações externas.
+
+---
+
+## 31. Seleção e agendamento determinísticos
+
+A seleção usa exclusivamente `Property.id` e é validada pelo
+`PropertySelectionService` contra `presented_property_ids`. O
+`selected_property_id` e os dados transitórios do agendamento permanecem no JSON
+da conversa. Enquanto o fluxo está ativo, o LangGraph o direciona ao
+`AppointmentFlowService` e não executa uma nova busca de imóveis.
+
+O `AppointmentFlowService` valida tipo, data, horário, confirmação e cancelamento
+conversacional. O `AppointmentService` combina data e horário no timezone de
+negócio `America/Sao_Paulo`, normaliza o instante para UTC e persiste por meio do
+`AppointmentRepository`. A constraint única de `idempotency_key` protege retries
+e concorrência.
+
+```text
+PropertyCard → selected_property_id → PropertySelectionService
+                                      ↓
+                              AppointmentFlowService
+                                      ↓
+                         POST /api/v1/appointments
+                                      ↓
+                           AppointmentRepository
+                                      ↓
+                       PostgreSQL + estado canônico
+```
+
+Somente a persistência bem-sucedida do Appointment define
+`accepted_meeting_or_visit=true` e aciona novo cálculo pelo `LeadScoreService`.
+O LLM não decide seleção, estágio, data, horário, persistência, score ou
+classificação. O frontend conserva `conversation_id` em `sessionStorage`, mas a
+UI completa ainda não é reidratada após refresh.

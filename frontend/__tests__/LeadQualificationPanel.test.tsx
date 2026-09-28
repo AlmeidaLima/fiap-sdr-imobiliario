@@ -23,6 +23,13 @@ function createState(
     min_parking_spaces: 1,
     min_usable_area: 70,
     semantic_preferences: [],
+    presented_property_ids: [],
+    selected_property_id: null,
+    appointment_stage: "NONE",
+    appointment_type: null,
+    appointment_date: null,
+    appointment_time: null,
+    appointment_id: null,
     ...overrides,
   };
 }

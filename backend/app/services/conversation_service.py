@@ -20,6 +20,7 @@ from app.services.lead_identification_service import (
 from app.services.property_search_intent_service import (
     PropertySearchIntentService,
 )
+from app.services.property_selection_service import PropertySelectionService
 
 
 class ConversationService:
@@ -174,8 +175,8 @@ class ConversationService:
                 commercial_qualification.urgency_days
             )
 
-        if commercial_qualification.accepted_meeting_or_visit:
-            updated_state.accepted_meeting_or_visit = True
+        if updated_state.appointment_id is None:
+            updated_state.accepted_meeting_or_visit = False
 
         return updated_state
 
@@ -217,6 +218,15 @@ class ConversationService:
             properties = (
                 self.property_search_service.search(
                     updated_state
+                )
+            )
+            updated_state = (
+                PropertySelectionService().register_presented_properties(
+                    updated_state,
+                    [
+                        property_embedding.property.id
+                        for property_embedding, _ in properties
+                    ],
                 )
             )
 

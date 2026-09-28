@@ -58,6 +58,13 @@ function createResponse({
       min_parking_spaces: null,
       min_usable_area: null,
       semantic_preferences: [],
+      presented_property_ids: properties.map((propertyItem) => propertyItem.id),
+      selected_property_id: null,
+      appointment_stage: "NONE",
+      appointment_type: null,
+      appointment_date: null,
+      appointment_time: null,
+      appointment_id: null,
     },
     qualification: {
       qualified,

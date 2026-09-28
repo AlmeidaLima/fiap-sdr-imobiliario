@@ -16,5 +16,7 @@ class Settings(BaseSettings):
     llm_model: str = "local-model"
     llm_timeout: float = 30.0
 
+    business_timezone: str = "America/Sao_Paulo"
+
 
 settings = Settings()

@@ -2378,3 +2378,28 @@ busca híbrida, resposta contextual/fallback e apresentação de cinco imóveis.
     A Missão 08 acrescenta a camada de estado e decisão conversacional: os critérios podem ser coletados em vários turnos, a aplicação identifica o que ainda falta e somente aciona a recuperação imobiliária quando existe informação mínima suficiente para a busca.
 
     A Missão 09 acrescenta persistência ao fluxo: Lead, Conversation, Message e o estado acumulado passam a ser armazenados no PostgreSQL. A aplicação recupera a conversa por `conversation_id`, mantém o mesmo Lead associado ao longo dos turnos e preserva o histórico de mensagens sem depender do estado reenviado pelo cliente.
+
+---
+
+### Missão 15 — Seleção de imóvel e agendamento
+
+**Status: Concluída**
+
+O usuário seleciona explicitamente um imóvel apresentado usando sua chave
+`property.id`. O backend preserva no `ConversationState` a lista mais recente
+de `presented_property_ids` e aceita `selected_property_id` somente quando o ID
+pertence a essa lista, sem decisão do LLM.
+
+Após a seleção, um fluxo determinístico coleta tipo, data, horário e confirmação.
+Uma visita confirmada pode ser persistida por `POST /api/v1/appointments`; o
+registro pode ser consultado por `GET /api/v1/appointments/{appointment_id}`.
+Data e horário são interpretados em `America/Sao_Paulo` e persistidos em UTC.
+Uma chave única e determinística torna a criação idempotente mesmo em retries.
+
+`accepted_meeting_or_visit` somente passa a `true` depois que o Appointment é
+persistido. Nesse momento o `LeadScoreService` recalcula score e classificação;
+uma frase textual ou a simples seleção do imóvel não concede os 25 pontos.
+
+O frontend guarda `conversation_id` em `sessionStorage`, evitando uma nova
+identidade após refresh na mesma aba. Mensagens, painel e cards ainda não são
+reidratados visualmente porque não existe endpoint de recuperação completa da UI.

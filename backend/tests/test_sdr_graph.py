@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 from app.agents.sdr_graph import build_sdr_graph
+from app.schemas.conversation import ConversationState
 
 
 class FakeLLMService:
@@ -204,3 +205,85 @@ def test_sdr_graph_processes_name_and_commercial_intent_without_searching():
     ]
     property_search_service.search.assert_not_called()
     property_search_service_factory.assert_not_called()
+
+
+def test_sdr_graph_collects_appointment_without_new_property_search_or_llm():
+    property_search_service_factory = Mock()
+    llm_service_factory = Mock()
+    graph = build_sdr_graph(
+        property_search_service_factory=property_search_service_factory,
+        llm_service_factory=llm_service_factory,
+    )
+    conversation_state = ConversationState(
+        conversation_id="graph-appointment",
+        commercial_intent="COMPRA",
+        neighborhood="Boa Vista",
+        max_price=700000,
+        min_bedrooms=3,
+        presented_property_ids=[10, 20],
+        selected_property_id=10,
+        appointment_stage="SELECTED",
+        lead_score=50,
+    )
+
+    messages_and_stages = [
+        ("Tenho interesse neste imóvel.", "AWAITING_TYPE"),
+        ("Quero marcar uma visita", "AWAITING_DATE"),
+        ("31/12/2099", "AWAITING_TIME"),
+        ("14h30", "AWAITING_CONFIRMATION"),
+        ("confirmo", "CONFIRMED"),
+    ]
+
+    for message, expected_stage in messages_and_stages:
+        result = graph.invoke(
+            {
+                "conversation_id": "graph-appointment",
+                "message": message,
+                "conversation_state": conversation_state,
+            }
+        )
+        conversation_state = result["conversation_state"]
+
+        assert conversation_state.appointment_stage == expected_stage
+        assert conversation_state.presented_property_ids == [10, 20]
+        assert conversation_state.selected_property_id == 10
+        assert conversation_state.accepted_meeting_or_visit is False
+        assert conversation_state.lead_score == 50
+        assert result["response"]
+
+    assert conversation_state.appointment_type == "VISITA"
+    assert conversation_state.appointment_date.isoformat() == "2099-12-31"
+    assert conversation_state.appointment_time.isoformat() == "14:30:00"
+    property_search_service_factory.assert_not_called()
+    llm_service_factory.assert_not_called()
+
+
+def test_sdr_graph_cancels_appointment_without_commercial_effects():
+    property_search_service_factory = Mock()
+    llm_service_factory = Mock()
+    graph = build_sdr_graph(
+        property_search_service_factory=property_search_service_factory,
+        llm_service_factory=llm_service_factory,
+    )
+
+    result = graph.invoke(
+        {
+            "conversation_id": "graph-appointment-cancel",
+            "message": "não quero mais",
+            "conversation_state": ConversationState(
+                conversation_id="graph-appointment-cancel",
+                neighborhood="Boa Vista",
+                max_price=700000,
+                min_bedrooms=3,
+                presented_property_ids=[10],
+                selected_property_id=10,
+                appointment_stage="AWAITING_DATE",
+            ),
+        }
+    )
+
+    state = result["conversation_state"]
+    assert state.appointment_stage == "CANCELLED"
+    assert state.accepted_meeting_or_visit is False
+    property_search_service_factory.assert_not_called()
+    llm_service_factory.assert_not_called()

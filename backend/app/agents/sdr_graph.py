@@ -1,6 +1,7 @@
 from langgraph.graph import END, START, StateGraph
 from collections.abc import Callable
 from app.agents.nodes import (
+    appointment_flow_node,
     ask_question_node,
     calculate_lead_score_node,
     generate_response_node,
@@ -9,6 +10,7 @@ from app.agents.nodes import (
     search_properties_node,
 )
 from app.agents.routing import (
+    ROUTE_APPOINTMENT_FLOW,
     ROUTE_ASK_QUESTION,
     ROUTE_SEARCH_PROPERTIES,
     route_after_qualification,
@@ -50,6 +52,11 @@ def build_sdr_graph(
     )
 
     graph.add_node(
+        ROUTE_APPOINTMENT_FLOW,
+        appointment_flow_node,
+    )
+
+    graph.add_node(
         ROUTE_SEARCH_PROPERTIES,
         lambda state: search_properties_node(
             state,
@@ -84,6 +91,7 @@ def build_sdr_graph(
         "qualify_conversation",
         route_after_qualification,
         {
+            ROUTE_APPOINTMENT_FLOW: ROUTE_APPOINTMENT_FLOW,
             ROUTE_ASK_QUESTION: ROUTE_ASK_QUESTION,
             ROUTE_SEARCH_PROPERTIES: ROUTE_SEARCH_PROPERTIES,
         },
@@ -92,6 +100,11 @@ def build_sdr_graph(
     graph.add_edge(
         ROUTE_ASK_QUESTION,
         "generate_response",
+    )
+
+    graph.add_edge(
+        ROUTE_APPOINTMENT_FLOW,
+        END,
     )
 
     graph.add_edge(

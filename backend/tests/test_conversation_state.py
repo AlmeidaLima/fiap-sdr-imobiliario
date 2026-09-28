@@ -51,6 +51,26 @@ def test_conversation_state_starts_with_empty_criteria():
     assert state.accepted_meeting_or_visit is False
     assert state.lead_score == 0
     assert state.lead_classification == "FRIO"
+    assert state.presented_property_ids == []
+    assert state.selected_property_id is None
+    assert state.appointment_stage == "NONE"
+    assert state.appointment_type is None
+    assert state.appointment_date is None
+    assert state.appointment_time is None
+    assert state.appointment_id is None
+
+
+def test_conversation_state_accepts_persisted_state_without_property_selection():
+    state = ConversationState.model_validate(
+        {
+            'conversation_id': 'conversation-old',
+            'neighborhood': 'Boa Vista',
+        }
+    )
+
+    assert state.presented_property_ids == []
+    assert state.selected_property_id is None
+    assert state.appointment_stage == "NONE"
 
 
 def test_conversation_state_rejects_negative_price():

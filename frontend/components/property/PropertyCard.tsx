@@ -2,6 +2,10 @@ import type { PropertySearchResponse } from "../../types/property";
 
 interface PropertyCardProps {
   property: PropertySearchResponse;
+  onSelect?: (propertyId: number) => void;
+  isSelected?: boolean;
+  appointmentPersisted?: boolean;
+  selectionDisabled?: boolean;
 }
 
 function formatQuantity(
@@ -26,7 +30,13 @@ function formatSimilarity(score: number): string {
 
 export function PropertyCard({
   property,
+  onSelect,
+  isSelected = false,
+  appointmentPersisted = false,
+  selectionDisabled = false,
 }: PropertyCardProps) {
+    const visitScheduled = isSelected && appointmentPersisted;
+
     return (
         <article className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
             <div className="flex items-start justify-between gap-4">
@@ -87,6 +97,29 @@ export function PropertyCard({
             <p className="mt-4 text-xs text-gray-500">
                 Compatibilidade com sua busca
             </p>
+
+            {onSelect && (
+                <button
+                    type="button"
+                    onClick={() => onSelect(property.id)}
+                    disabled={selectionDisabled || isSelected}
+                    aria-pressed={isSelected}
+                    aria-label={
+                        visitScheduled
+                            ? `Visita agendada: ${property.title ?? property.neighborhood}`
+                            : isSelected
+                            ? `Imóvel selecionado: ${property.title ?? property.neighborhood}`
+                            : `Tenho interesse em ${property.title ?? property.neighborhood}`
+                    }
+                    className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                >
+                    {visitScheduled
+                        ? "Visita agendada"
+                        : isSelected
+                            ? "Selecionado"
+                            : "Tenho interesse"}
+                </button>
+            )}
         </article>
     );
 }

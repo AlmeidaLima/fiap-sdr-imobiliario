@@ -1,3 +1,4 @@
+from datetime import date, time
 from decimal import Decimal
 from typing import Literal
 
@@ -61,6 +62,28 @@ class ConversationState(BaseModel):
         default_factory=list,
     )
 
+    presented_property_ids: list[int] = Field(
+        default_factory=list,
+    )
+
+    selected_property_id: int | None = None
+
+    appointment_stage: Literal[
+        "NONE",
+        "SELECTED",
+        "AWAITING_TYPE",
+        "AWAITING_DATE",
+        "AWAITING_TIME",
+        "AWAITING_CONFIRMATION",
+        "CONFIRMED",
+        "CANCELLED",
+    ] = "NONE"
+
+    appointment_type: Literal["VISITA", "REUNIAO"] | None = None
+    appointment_date: date | None = None
+    appointment_time: time | None = None
+    appointment_id: int | None = None
+
 
 class ConversationQualification(BaseModel):
     qualified: bool
@@ -104,6 +127,8 @@ class ConversationTurnRequest(BaseModel):
     )
 
     state: ConversationState | None = None
+
+    selected_property_id: int | None = None
 
     limit: int = Field(
         default=5,

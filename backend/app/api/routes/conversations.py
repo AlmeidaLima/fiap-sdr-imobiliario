@@ -27,6 +27,7 @@ from app.services.llm_service import LLMService
 from app.services.property_hybrid_search_service import (
     PropertyHybridSearchService,
 )
+from app.services.property_selection_service import PropertySelectionService
 from app.services.sdr_agent_service import SDRAgentService
 
 
@@ -77,6 +78,12 @@ def process_conversation_turn(
         conversation_id=request.conversation_id,
         **persisted_state,
     )
+
+    if request.selected_property_id is not None:
+        conversation_state = PropertySelectionService().select_property(
+            state=conversation_state,
+            property_id=request.selected_property_id,
+        )
 
     # ============================================================
     # Persiste mensagem recebida do usuário

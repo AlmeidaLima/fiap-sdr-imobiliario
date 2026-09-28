@@ -44,15 +44,6 @@ class CommercialQualificationService:
         r"(dias?|mes|meses)\b"
     )
 
-    ACCEPTANCE_PATTERNS = (
-        r"(?<!nao )\b(?:sim\s*,?\s*)?podemos\s+(?:marcar|agendar)\s+"
-        r"(?:uma\s+)?(?:visita|reuniao)\b",
-        r"(?<!nao )\bquero\s+visitar\b",
-        r"(?<!nao )\bquero\s+(?:marcar|agendar)\s+(?:uma\s+)?"
-        r"(?:visita|reuniao)\b",
-        r"(?<!nao )\baceito\s+(?:uma\s+)?(?:visita|reuniao)\b",
-    )
-
     def extract(
             self,
             message: str,
@@ -65,11 +56,6 @@ class CommercialQualificationService:
             ),
             urgency_days=self._extract_urgency_days(
                 normalized_message
-            ),
-            accepted_meeting_or_visit=(
-                self._extract_meeting_or_visit_acceptance(
-                    normalized_message
-                )
             ),
         )
 
@@ -104,16 +90,6 @@ class CommercialQualificationService:
             return quantity * 30
 
         return quantity
-
-    @classmethod
-    def _extract_meeting_or_visit_acceptance(
-            cls,
-            message: str,
-    ) -> bool:
-        return any(
-            re.search(pattern, message) is not None
-            for pattern in cls.ACCEPTANCE_PATTERNS
-        )
 
     @staticmethod
     def _normalize_text(value: str) -> str:

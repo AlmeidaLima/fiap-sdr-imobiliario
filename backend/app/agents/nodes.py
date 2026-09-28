@@ -1,5 +1,6 @@
 from app.agents.state import AgentState
 from app.schemas.conversation import ConversationState
+from app.services.appointment_flow_service import AppointmentFlowService
 from app.services.conversation_service import ConversationService
 from app.services.conversation_qualification_service import (
     ConversationQualificationService,
@@ -10,6 +11,7 @@ from app.services.conversation_property_search_service import (
 from app.services.llm_client import LLMClientError
 from app.services.llm_service import LLMService
 from app.services.lead_score_service import LeadScoreService
+from app.services.property_selection_service import PropertySelectionService
 
 def process_message_node(state: AgentState) -> dict:
     conversation_id = state["conversation_id"]
@@ -69,6 +71,18 @@ def ask_question_node(state: AgentState) -> dict:
         "response": qualification.next_question,
     }
 
+
+def appointment_flow_node(state: AgentState) -> dict:
+    result = AppointmentFlowService().process(
+        state=state["conversation_state"],
+        message=state["message"],
+    )
+
+    return {
+        "conversation_state": result.state,
+        "response": result.response,
+    }
+
 def search_properties_node(
         state: AgentState,
         property_search_service: ConversationPropertySearchService,
@@ -80,8 +94,18 @@ def search_properties_node(
         limit=state.get("limit", 5),
     )
 
+    property_ids = [
+        property_embedding.property.id
+        for property_embedding, _ in properties
+    ]
+    updated_state = PropertySelectionService().register_presented_properties(
+        conversation_state,
+        property_ids,
+    )
+
     return {
         "properties": properties,
+        "conversation_state": updated_state,
     }
 
 
