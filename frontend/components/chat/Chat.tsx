@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 
 import { createAppointment } from "../../services/appointmentService";
 import { sendConversationTurn } from "../../services/conversationService";
+import { getLeadHandoff } from "../../services/leadHandoffService";
+
 import type {
   ChatMessage,
   ConversationQualification,
@@ -11,7 +13,9 @@ import type {
   ConversationTurnResponse,
 } from "../../types/conversation";
 import type { PropertySearchResponse } from "../../types/property";
+import type { LeadHandoffResponse } from "../../types/leadHandoff";
 import { LeadQualificationPanel } from "../lead/LeadQualificationPanel";
+import { LeadHandoffPanel } from "../lead/LeadHandoffPanel";
 import { PropertyList } from "../property/PropertyList";
 import { ChatHeader } from "./ChatHeader";
 import { LoadingIndicator } from "./LoadingIndicator";
@@ -47,15 +51,19 @@ function getOrCreateConversationId(): string {
 }
 
 function appointmentSuccessMessage(state: ConversationState): string {
-  const type = state.appointment_type === "REUNIAO" ? "ReuniÃ£o" : "Visita";
+  const type = state.appointment_type === "REUNIAO"
+      ? "Reunião"
+      : "Visita";
+
   const date = state.appointment_date
-    ? state.appointment_date.split("-").reverse().join("/")
-    : null;
+      ? state.appointment_date.split("-").reverse().join("/")
+      : null;
+
   const time = state.appointment_time?.slice(0, 5) ?? null;
 
   return date && time
-    ? `${type} agendada com sucesso para ${date} Ã s ${time}.`
-    : `${type} agendada com sucesso.`;
+      ? `${type} agendada com sucesso para ${date} às ${time}.`
+      : `${type} agendada com sucesso.`;
 }
 
 export function Chat() {
@@ -83,8 +91,14 @@ export function Chat() {
   const [appointmentFeedback, setAppointmentFeedback] = useState<string | null>(
     null,
   );
+  const [leadHandoff, setLeadHandoff] =
+      useState<LeadHandoffResponse | null>(null);
+
+  const [handoffError, setHandoffError] = useState<string | null>(null);
   const appointmentRequestInFlight = useRef(false);
   const persistedAppointments = useRef(new Set<string>());
+  const handoffRequestInFlight = useRef(false);
+  const loadedHandoffs = useRef(new Set<string>());
 
   function applyResponse(response: ConversationTurnResponse) {
     const appointmentFlowActive = response.state.appointment_stage !== "NONE";
@@ -119,7 +133,36 @@ export function Chat() {
       state.appointment_time,
     ].join(":");
   }
+  async function loadLeadHandoff(state: ConversationState) {
+    if (!conversationId || state.appointment_id === null) {
+      return;
+    }
 
+    const handoffKey = `${conversationId}:${state.appointment_id}`;
+
+    if (
+        handoffRequestInFlight.current
+        || loadedHandoffs.current.has(handoffKey)
+    ) {
+      return;
+    }
+
+    handoffRequestInFlight.current = true;
+    setHandoffError(null);
+
+    try {
+      const response = await getLeadHandoff(conversationId);
+
+      setLeadHandoff(response);
+      loadedHandoffs.current.add(handoffKey);
+    } catch {
+      setHandoffError(
+          "O agendamento foi concluído, mas não foi possível carregar o resumo para o corretor.",
+      );
+    } finally {
+      handoffRequestInFlight.current = false;
+    }
+  }
   async function persistConfirmedAppointment(state: ConversationState) {
     if (
       !conversationId
@@ -144,10 +187,16 @@ export function Chat() {
       const response = await createAppointment({
         conversation_id: conversationId,
       });
+
       persistedAppointments.current.add(operationKey);
       setConversationState(response.state);
+
       if (response.state.appointment_id !== null) {
-        setAppointmentFeedback(appointmentSuccessMessage(response.state));
+        setAppointmentFeedback(
+            appointmentSuccessMessage(response.state),
+        );
+
+        await loadLeadHandoff(response.state);
       }
     } catch {
       setAppointmentError(
@@ -244,6 +293,28 @@ export function Chat() {
     await persistConfirmedAppointment(conversationState);
     setIsSending(false);
   }
+  async function handleHandoffRetry() {
+    if (
+        isSending
+        || !conversationState
+        || conversationState.appointment_id === null
+    ) {
+      return;
+    }
+
+    const handoffKey =
+        `${conversationId}:${conversationState.appointment_id}`;
+
+    loadedHandoffs.current.delete(handoffKey);
+
+    setIsSending(true);
+
+    try {
+      await loadLeadHandoff(conversationState);
+    } finally {
+      setIsSending(false);
+    }
+  }
 
   return (
       <section className="flex h-[80vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -302,6 +373,23 @@ export function Chat() {
                 {appointmentFeedback}
               </div>
             )}
+            {handoffError && (
+                <div
+                    role="alert"
+                    className="mx-4 mb-3 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                >
+                  <p>{handoffError}</p>
+
+                  <button
+                      type="button"
+                      disabled={isSending}
+                      onClick={handleHandoffRetry}
+                      className="mt-2 font-semibold underline disabled:opacity-50"
+                  >
+                    Tentar carregar resumo novamente
+                  </button>
+                </div>
+            )}
 
             <MessageInput
                 disabled={isSending || !conversationId}
@@ -312,8 +400,13 @@ export function Chat() {
           {/* Painel dos imóveis */}
           <div className="min-h-0 flex-1 overflow-y-auto md:w-3/5">
             {conversationState && (
-              <LeadQualificationPanel state={conversationState} />
+                <LeadQualificationPanel state={conversationState} />
             )}
+
+            {leadHandoff && (
+                <LeadHandoffPanel handoff={leadHandoff} />
+            )}
+
             <PropertyList
               properties={properties}
               showNoResults={qualification?.qualified === true}

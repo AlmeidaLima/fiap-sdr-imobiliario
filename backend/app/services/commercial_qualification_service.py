@@ -40,7 +40,9 @@ class CommercialQualificationService:
     )
 
     URGENCY_PATTERN = re.compile(
-        r"\b(?:em|nos? proximos?|daqui a)\s+(\d+)\s+"
+        r"\b(?:em|nos? proximos?|daqui a)\s+"
+        r"(?:ate\s+)?"
+        r"(\d+)\s+"
         r"(dias?|mes|meses)\b"
     )
 

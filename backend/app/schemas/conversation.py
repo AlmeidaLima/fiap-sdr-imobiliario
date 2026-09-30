@@ -74,6 +74,7 @@ class ConversationState(BaseModel):
         "AWAITING_TYPE",
         "AWAITING_DATE",
         "AWAITING_TIME",
+        "AWAITING_NAME",
         "AWAITING_CONFIRMATION",
         "CONFIRMED",
         "CANCELLED",

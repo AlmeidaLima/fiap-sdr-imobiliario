@@ -230,7 +230,8 @@ def test_sdr_graph_collects_appointment_without_new_property_search_or_llm():
         ("Tenho interesse neste imóvel.", "AWAITING_TYPE"),
         ("Quero marcar uma visita", "AWAITING_DATE"),
         ("31/12/2099", "AWAITING_TIME"),
-        ("14h30", "AWAITING_CONFIRMATION"),
+        ("14h30", "AWAITING_NAME"),
+        ("Meu nome é Rafael Almeida", "AWAITING_CONFIRMATION"),
         ("confirmo", "CONFIRMED"),
     ]
 

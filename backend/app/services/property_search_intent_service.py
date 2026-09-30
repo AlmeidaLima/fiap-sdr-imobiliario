@@ -1,4 +1,6 @@
+
 import re
+import unicodedata
 from decimal import Decimal
 
 from app.schemas.property_search_intent import (
@@ -56,36 +58,68 @@ class PropertySearchIntentService:
             message: str,
     ) -> str | None:
 
-        if re.search(
-                r"\bna\s+verdade\b",
-                message,
-                flags=re.IGNORECASE,
-        ):
-            message = re.sub(
-                r"\bna\s+verdade\b",
-                "",
-                message,
-                flags=re.IGNORECASE,
-            ).strip()
+        # Evita interpretar "na verdade" como localização.
+        message = re.sub(
+            r"\bna\s+verdade\b",
+            "",
+            message,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        # Ex.: "no bairro Boa Vista e preciso do imóvel em até 30 dias"
+        match = re.search(
+            r"\b(?:no|na|em)\s+bairro\s+"
+            r"([a-záàâãéêíóôõúç ]+?)"
+            r"(?=\s+e\s+(?:preciso|quero|desejo|pretendo)\b"
+            r"|\s+(?:com|até|ate)\b"
+            r"|[.!?,]|$)",
+            message,
+            flags=re.IGNORECASE,
+        )
+
+        if match:
+            return match.group(1).strip().title()
 
         patterns = [
             # Ex.: "no Boa Vista com 3 quartos"
-            r"\b(?:no|na)\s+([a-záàâãéêíóôõúç ]+?)(?=\s+com\b)",
+            (
+                r"\b(?:no|na)\s+"
+                r"([a-záàâãéêíóôõúç ]+?)"
+                r"(?=\s+com\b)"
+            ),
 
             # Ex.: "no Boa Vista até 700 mil"
-            r"\b(?:no|na)\s+([a-záàâãéêíóôõúç ]+?)(?=\s+(?:até|ate)\b)",
+            (
+                r"\b(?:no|na)\s+"
+                r"([a-záàâãéêíóôõúç ]+?)"
+                r"(?=\s+(?:até|ate)\b)"
+            ),
 
             # Ex.: "no Boa Vista"
-            r"\b(?:no|na)\s+([a-záàâãéêíóôõúç ]+?)$",
+            (
+                r"\b(?:no|na)\s+"
+                r"([a-záàâãéêíóôõúç ]+?)$"
+            ),
 
             # Ex.: "em Boa Vista com 3 quartos"
-            r"\bem\s+([a-záàâãéêíóôõúç ]+?)(?=\s+com\b)",
+            (
+                r"\bem\s+"
+                r"([a-záàâãéêíóôõúç ]+?)"
+                r"(?=\s+com\b)"
+            ),
 
             # Ex.: "em Boa Vista até 700 mil"
-            r"\bem\s+([a-záàâãéêíóôõúç ]+?)(?=\s+(?:até|ate)\b)",
+            (
+                r"\bem\s+"
+                r"([a-záàâãéêíóôõúç ]+?)"
+                r"(?=\s+(?:até|ate)\b)"
+            ),
 
             # Ex.: "em Boa Vista"
-            r"\bem\s+([a-záàâãéêíóôõúç ]+?)$",
+            (
+                r"\bem\s+"
+                r"([a-záàâãéêíóôõúç ]+?)$"
+            ),
         ]
 
         for pattern in patterns:
@@ -105,33 +139,60 @@ class PropertySearchIntentService:
             message: str,
     ) -> Decimal | None:
 
+        # Remove acentos apenas para reconhecer expressões
+        # como "orçamento máximo" e "até".
+        normalized = unicodedata.normalize(
+            "NFKD",
+            message,
+        )
+        normalized = "".join(
+            character
+            for character in normalized
+            if not unicodedata.combining(character)
+        )
+
         patterns = [
-            r"(?:até|ate)\s+(?:r\$\s*)?([\d.,]+)\s*mil",
-            r"(?:até|ate)\s+(?:r\$\s*)?([\d.,]+)",
+            # Ex.: "Meu orçamento máximo é de R$ 400.000"
+            (
+                r"orcamento\s+maximo\s+"
+                r"(?:e\s+)?(?:de\s+)?"
+                r"r\$\s*([\d.,]+)"
+            ),
+
+            # Ex.: "até 700 mil"
+            r"\bate\s+(?:r\$\s*)?([\d.,]+)\s*mil\b",
+
+            # Ex.: "até R$ 650.000"
+            r"\bate\s+r\$\s*([\d.,]+)",
+
+            # Ex.: "até 550000", mas não "até 30 dias"
+            r"\bate\s+([\d.,]+)(?=\s*(?:[.!?,]|$))",
         ]
 
         for pattern in patterns:
             match = re.search(
                 pattern,
-                message,
+                normalized,
                 flags=re.IGNORECASE,
             )
 
             if not match:
                 continue
 
-            value = match.group(1)
+            value = match.group(1).rstrip(".,")
 
-            if "mil" in match.group(0).lower():
-                numeric_value = Decimal(
-                    value.replace(".", "").replace(",", ".")
-                )
-
-                return numeric_value * 1000
-
-            return Decimal(
+            numeric_value = Decimal(
                 value.replace(".", "").replace(",", ".")
             )
+
+            if re.search(
+                    r"\bmil\b",
+                    match.group(0),
+                    flags=re.IGNORECASE,
+            ):
+                return numeric_value * 1000
+
+            return numeric_value
 
         return None
 
@@ -190,7 +251,10 @@ class PropertySearchIntentService:
 
         patterns = [
             r"(\d+)\s*(?:m²|m2|metros quadrados)",
-            r"(?:pelo menos|mínimo|minimo)\s+(\d+)\s*metros",
+            (
+                r"(?:pelo menos|mínimo|minimo)\s+"
+                r"(\d+)\s*metros"
+            ),
         ]
 
         for pattern in patterns:
@@ -204,13 +268,3 @@ class PropertySearchIntentService:
                 return int(match.group(1))
 
         return None
-
-def test_parse_does_not_interpret_na_verdade_as_neighborhood():
-    service = PropertySearchIntentService()
-
-    intent = service.parse(
-        "Na verdade pode ser até 800 mil"
-    )
-
-    assert intent.neighborhood is None
-    assert intent.max_price == Decimal("800000")

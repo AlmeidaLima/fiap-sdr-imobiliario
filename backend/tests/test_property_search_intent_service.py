@@ -83,3 +83,46 @@ def test_parse_keeps_subjective_preferences():
             "transporte público"
             in intent.semantic_query.lower()
     )
+
+def test_parse_neighborhood_followed_by_urgency():
+    service = PropertySearchIntentService()
+
+    intent = service.parse(
+        "Estou procurando no bairro Boa Vista "
+        "e preciso do imóvel em até 30 dias."
+    )
+
+    assert intent.neighborhood == "Boa Vista"
+    assert intent.max_price is None
+
+
+def test_parse_budget_does_not_interpret_days_as_price():
+    service = PropertySearchIntentService()
+
+    intent = service.parse(
+        "Preciso do imóvel em até 30 dias."
+    )
+
+    assert intent.max_price is None
+
+
+def test_parse_explicit_maximum_budget():
+    service = PropertySearchIntentService()
+
+    intent = service.parse(
+        "Meu orçamento máximo é de R$ 400.000."
+    )
+
+    assert intent.max_price == Decimal("400000")
+
+
+def test_parse_bedrooms_and_explicit_budget():
+    service = PropertySearchIntentService()
+
+    intent = service.parse(
+        "Quero um apartamento com pelo menos 3 quartos. "
+        "Meu orçamento máximo é de R$ 400.000."
+    )
+
+    assert intent.min_bedrooms == 3
+    assert intent.max_price == Decimal("400000")

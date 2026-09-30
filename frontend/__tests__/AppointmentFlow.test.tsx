@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { Chat } from "../components/chat/Chat";
 import { createAppointment } from "../services/appointmentService";
 import { sendConversationTurn } from "../services/conversationService";
+import { getLeadHandoff } from "../services/leadHandoffService";
+import type { LeadHandoffResponse } from "../types/leadHandoff";
 import type { AppointmentCreateResponse } from "../types/appointment";
 import type {
   ConversationState,
@@ -16,9 +18,13 @@ vi.mock("../services/appointmentService", () => ({
 vi.mock("../services/conversationService", () => ({
   sendConversationTurn: vi.fn(),
 }));
+vi.mock("../services/leadHandoffService", () => ({
+  getLeadHandoff: vi.fn(),
+}));
 
 const mockedCreateAppointment = vi.mocked(createAppointment);
 const mockedSendConversationTurn = vi.mocked(sendConversationTurn);
+const mockedGetLeadHandoff = vi.mocked(getLeadHandoff);
 
 function createState(
   overrides: Partial<ConversationState> = {},
@@ -81,7 +87,49 @@ function appointmentResponse(state: ConversationState): AppointmentCreateRespons
     state,
   };
 }
-
+function handoffResponse(
+    overrides: Partial<LeadHandoffResponse> = {},
+): LeadHandoffResponse {
+  return {
+    conversation_id: "conversation-existing",
+    handoff_status: "READY",
+    lead: {
+      id: 7,
+      name: "Rafael",
+      score: 100,
+      classification: "QUENTE",
+    },
+    qualification: {
+      commercial_intent: "COMPRA",
+      urgency_days: 30,
+      neighborhood: "Boa Vista",
+      min_price: null,
+      max_price: "400000.00",
+      min_bedrooms: 3,
+      min_bathrooms: null,
+      min_parking_spaces: null,
+      min_usable_area: null,
+    },
+    property: {
+      id: 101,
+      external_id: "property-101",
+      title: "Apartamento Boa Vista",
+      neighborhood: "Boa Vista",
+      price: "350000.00",
+      bedrooms: 3,
+      bathrooms: 2,
+      parking_spaces: 1,
+      usable_area: "75.00",
+    },
+    appointment: {
+      id: 88,
+      appointment_type: "VISITA",
+      scheduled_at: "2099-12-31T17:30:00Z",
+      status: "CONFIRMED",
+    },
+    ...overrides,
+  };
+}
 function sendMessage(message = "confirmo") {
   fireEvent.change(screen.getByRole("textbox", { name: "Mensagem" }), {
     target: { value: message },
@@ -93,6 +141,8 @@ describe("persistÃªncia do agendamento no Chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+
+    mockedGetLeadHandoff.mockResolvedValue(handoffResponse());
   });
 
   test("gera, salva e reutiliza o conversation_id da sessÃ£o", async () => {
@@ -118,7 +168,7 @@ describe("persistÃªncia do agendamento no Chat", () => {
     expect(sessionStorage.getItem("lia_conversation_id")).toBe(storedId);
   });
 
-  test("persiste CONFIRMED sem id e usa somente o state canÃ´nico retornado", async () => {
+  test("persiste CONFIRMED sem id e usa somente o state canônico  retornado", async () => {
     sessionStorage.setItem("lia_conversation_id", "conversation-existing");
     const confirmedState = createState();
     const persistedState = createState({
@@ -134,7 +184,9 @@ describe("persistÃªncia do agendamento no Chat", () => {
     const view = render(<Chat />);
     sendMessage();
 
-    expect(await screen.findByText("100 / 100")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("100 / 100").length).toBeGreaterThan(0);
+    });
     expect(screen.getByText("Sim")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Visita agendada com sucesso",
@@ -239,12 +291,235 @@ describe("persistÃªncia do agendamento no Chat", () => {
 
     fireEvent.click(retry);
 
-    expect(await screen.findByText("100 / 100")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("100 / 100").length).toBeGreaterThan(0);
+    });
     expect(screen.getByText("Sim")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Visita agendada com sucesso",
     );
     expect(mockedCreateAppointment).toHaveBeenCalledTimes(2);
     expect(mockedSendConversationTurn).toHaveBeenCalledTimes(1);
+  });
+  test("não consulta handoff antes de existir appointment persistido", async () => {
+    mockedSendConversationTurn.mockResolvedValue(
+        turnResponse(
+            createState({
+              appointment_stage: "AWAITING_CONFIRMATION",
+              appointment_id: null,
+            }),
+        ),
+    );
+
+    render(<Chat />);
+    sendMessage();
+
+    await waitFor(() => {
+      expect(mockedSendConversationTurn).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedCreateAppointment).not.toHaveBeenCalled();
+    expect(mockedGetLeadHandoff).not.toHaveBeenCalled();
+  });
+
+  test("consulta handoff somente depois de receber appointment_id real", async () => {
+    sessionStorage.setItem(
+        "lia_conversation_id",
+        "conversation-existing",
+    );
+
+    let resolveAppointment: (
+        response: AppointmentCreateResponse,
+    ) => void;
+
+    const pendingAppointment =
+        new Promise<AppointmentCreateResponse>((resolve) => {
+          resolveAppointment = resolve;
+        });
+
+    const persistedState = createState({
+      appointment_id: 88,
+      accepted_meeting_or_visit: true,
+      lead_score: 100,
+    });
+
+    mockedSendConversationTurn.mockResolvedValue(
+        turnResponse(createState()),
+    );
+
+    mockedCreateAppointment.mockReturnValue(pendingAppointment);
+
+    render(<Chat />);
+    sendMessage();
+
+    await waitFor(() => {
+      expect(mockedCreateAppointment).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedGetLeadHandoff).not.toHaveBeenCalled();
+
+    resolveAppointment!(appointmentResponse(persistedState));
+
+    await waitFor(() => {
+      expect(mockedGetLeadHandoff).toHaveBeenCalledWith(
+          "conversation-existing",
+      );
+    });
+
+    expect(mockedGetLeadHandoff).toHaveBeenCalledTimes(1);
+
+    expect(
+        await screen.findByRole("heading", {
+          name: "Resumo para o Corretor",
+        }),
+    ).toBeInTheDocument();
+
+    expect(
+        screen.getByText("Apartamento Boa Vista"),
+    ).toBeInTheDocument();
+  });
+
+  test("falha do handoff preserva appointment persistido e permite retry sem recriar appointment", async () => {
+    sessionStorage.setItem(
+        "lia_conversation_id",
+        "conversation-existing",
+    );
+
+    const persistedState = createState({
+      appointment_id: 88,
+      accepted_meeting_or_visit: true,
+      lead_score: 100,
+    });
+
+    mockedSendConversationTurn.mockResolvedValue(
+        turnResponse(createState()),
+    );
+
+    mockedCreateAppointment.mockResolvedValue(
+        appointmentResponse(persistedState),
+    );
+
+    mockedGetLeadHandoff
+        .mockRejectedValueOnce(new Error("handoff network error"))
+        .mockResolvedValueOnce(handoffResponse());
+
+    render(<Chat />);
+    sendMessage();
+
+    expect(
+        await screen.findByText("100 / 100"),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText("Sim")).toBeInTheDocument();
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+        "Visita agendada com sucesso",
+    );
+
+    const retry = await screen.findByRole("button", {
+      name: "Tentar carregar resumo novamente",
+    });
+
+    expect(mockedCreateAppointment).toHaveBeenCalledTimes(1);
+    expect(mockedGetLeadHandoff).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(retry);
+
+    expect(
+        await screen.findByRole("heading", {
+          name: "Resumo para o Corretor",
+        }),
+    ).toBeInTheDocument();
+
+    expect(mockedGetLeadHandoff).toHaveBeenCalledTimes(2);
+
+    // Retry do Handoff não pode persistir outro Appointment.
+    expect(mockedCreateAppointment).toHaveBeenCalledTimes(1);
+
+    // Também não deve repetir o turno da conversa.
+    expect(mockedSendConversationTurn).toHaveBeenCalledTimes(1);
+  });
+
+  test("rerender não duplica consulta do handoff READY", async () => {
+    sessionStorage.setItem(
+        "lia_conversation_id",
+        "conversation-existing",
+    );
+
+    const persistedState = createState({
+      appointment_id: 88,
+      accepted_meeting_or_visit: true,
+      lead_score: 100,
+    });
+
+    mockedSendConversationTurn.mockResolvedValue(
+        turnResponse(createState()),
+    );
+
+    mockedCreateAppointment.mockResolvedValue(
+        appointmentResponse(persistedState),
+    );
+
+    const view = render(<Chat />);
+    sendMessage();
+
+    expect(
+        await screen.findByRole("heading", {
+          name: "Resumo para o Corretor",
+        }),
+    ).toBeInTheDocument();
+
+    expect(mockedGetLeadHandoff).toHaveBeenCalledTimes(1);
+
+    view.rerender(<Chat />);
+
+    await waitFor(() => {
+      expect(mockedGetLeadHandoff).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockedCreateAppointment).toHaveBeenCalledTimes(1);
+  });
+
+  test("NOT_READY não apresenta resumo como READY", async () => {
+    const persistedState = createState({
+      appointment_id: 88,
+      accepted_meeting_or_visit: true,
+      lead_score: 100,
+    });
+
+    mockedSendConversationTurn.mockResolvedValue(
+        turnResponse(createState()),
+    );
+
+    mockedCreateAppointment.mockResolvedValue(
+        appointmentResponse(persistedState),
+    );
+
+    mockedGetLeadHandoff.mockResolvedValue(
+        handoffResponse({
+          handoff_status: "NOT_READY",
+          property: null,
+          appointment: null,
+        }),
+    );
+
+    render(<Chat />);
+    sendMessage();
+
+    await waitFor(() => {
+      expect(mockedGetLeadHandoff).toHaveBeenCalledTimes(1);
+    });
+
+    expect(
+        screen.queryByRole("heading", {
+          name: "Resumo para o Corretor",
+        }),
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+        "Visita agendada com sucesso",
+    );
+
+    expect(mockedCreateAppointment).toHaveBeenCalledTimes(1);
   });
 });
