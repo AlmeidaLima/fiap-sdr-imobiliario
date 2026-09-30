@@ -129,3 +129,20 @@ def test_estou_procurando_preserves_existing_intent_guardrails(
 ):
     result = service.extract(message)
     assert result.commercial_intent == "INDEFINIDO"
+
+@pytest.mark.parametrize(
+    ("message", "expected_days"),
+    [
+        ("Preciso do imóvel em até 30 dias.", 30),
+        ("Quero comprar em até 2 meses.", 60),
+        ("Preciso do imóvel em até 0 dias.", None),
+    ],
+)
+def test_extracts_urgency_with_ate(
+        service,
+        message,
+        expected_days,
+):
+    result = service.extract(message)
+
+    assert result.urgency_days == expected_days

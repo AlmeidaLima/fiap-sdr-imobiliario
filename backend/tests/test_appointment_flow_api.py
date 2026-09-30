@@ -42,10 +42,14 @@ def test_appointment_flow_is_persisted_without_search_or_llm(monkeypatch):
         db.close()
 
     turns = [
-        ({"message": "Tenho interesse neste imóvel.", "selected_property_id": 10}, "AWAITING_TYPE"),
+        (
+            {"message": "Tenho interesse neste imóvel.", "selected_property_id": 10},
+            "AWAITING_TYPE",
+        ),
         ({"message": "Quero marcar uma visita"}, "AWAITING_DATE"),
         ({"message": "31/12/2099"}, "AWAITING_TIME"),
-        ({"message": "14h30"}, "AWAITING_CONFIRMATION"),
+        ({"message": "14h30"}, "AWAITING_NAME"),
+        ({"message": "Meu nome é Rafael Almeida"}, "AWAITING_CONFIRMATION"),
         ({"message": "confirmo"}, "CONFIRMED"),
     ]
 
@@ -54,6 +58,16 @@ def test_appointment_flow_is_persisted_without_search_or_llm(monkeypatch):
             "/api/v1/conversations/turn",
             json={"conversation_id": conversation_id, **payload},
         )
+
+    db = SessionLocal()
+    try:
+        conversation = ConversationRepository(db).find_by_conversation_id(
+            conversation_id
+        )
+        assert conversation is not None
+        assert conversation.lead_id is not None
+    finally:
+        db.close()
 
         assert response.status_code == 200
         state = response.json()["state"]
@@ -73,6 +87,10 @@ def test_appointment_flow_is_persisted_without_search_or_llm(monkeypatch):
         persisted = ConversationRepository(db).find_by_conversation_id(
             conversation_id,
         )
+
+        assert persisted is not None
+        assert persisted.lead_id is not None
+        assert persisted.state["lead_name"] == "Rafael Almeida"
         assert persisted.state["appointment_stage"] == "CONFIRMED"
         assert persisted.state["accepted_meeting_or_visit"] is False
     finally:

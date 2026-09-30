@@ -1,3 +1,4 @@
+
 from datetime import date, time
 
 import pytest
@@ -61,14 +62,20 @@ def test_records_valid_date_and_serializes_state():
 
     assert result.state.appointment_date == date(2026, 9, 30)
     assert result.state.appointment_stage == "AWAITING_TIME"
+
     serialized = result.state.model_dump(mode="json")
     recovered = ConversationState.model_validate(serialized)
+
     assert recovered.appointment_date == date(2026, 9, 30)
 
 
-@pytest.mark.parametrize("message", ["26/09/2026", "31/09/2026"])
+@pytest.mark.parametrize(
+    "message",
+    ["26/09/2026", "31/09/2026"],
+)
 def test_rejects_past_or_invalid_date_without_destroying_state(message):
     previous_date = date(2026, 10, 1)
+
     state = create_state(
         appointment_stage="AWAITING_DATE",
         appointment_type="VISITA",
@@ -94,19 +101,23 @@ def test_records_supported_time_formats(message, expected_time):
         appointment_stage="AWAITING_TIME",
         appointment_type="VISITA",
         appointment_date=date(2026, 9, 30),
+        lead_name=None,
     )
 
     result = create_service().process(state, message)
 
     assert result.state.appointment_time == expected_time
-    assert result.state.appointment_stage == "AWAITING_CONFIRMATION"
-    assert "30/09/2026" in result.response
-    assert expected_time.strftime("%H:%M") in result.response
+    assert result.state.appointment_stage == "AWAITING_NAME"
+    assert "nome" in result.response.lower()
 
 
-@pytest.mark.parametrize("message", ["25:00", "14:99"])
+@pytest.mark.parametrize(
+    "message",
+    ["25:00", "14:99"],
+)
 def test_rejects_invalid_time_without_destroying_state(message):
     previous_time = time(10, 0)
+
     state = create_state(
         appointment_stage="AWAITING_TIME",
         appointment_type="VISITA",
@@ -129,7 +140,10 @@ def create_confirmation_state() -> ConversationState:
     )
 
 
-@pytest.mark.parametrize("message", ["sim", "confirmo", "pode confirmar"])
+@pytest.mark.parametrize(
+    "message",
+    ["sim", "confirmo", "pode confirmar"],
+)
 def test_confirmation_is_deterministic_and_has_no_commercial_effect(message):
     state = create_confirmation_state()
 
@@ -145,19 +159,55 @@ def test_confirmation_is_deterministic_and_has_no_commercial_effect(message):
     assert "agendada com sucesso" not in result.response.lower()
 
 
+def test_confirmation_accepts_natural_language_without_commercial_effects():
+    """
+    Reproduz a falha identificada na validação integrada da LIA.
+
+    A mensagem "Sim, confirmo a visita." deve confirmar os dados
+    do agendamento, mas não deve persistir o Appointment nem
+    alterar a pontuação comercial.
+    """
+    state = create_confirmation_state()
+
+    result = create_service().process(
+        state,
+        "Sim, confirmo a visita.",
+    )
+
+    assert result.state.appointment_stage == "CONFIRMED"
+
+    assert result.state.selected_property_id == 10
+    assert result.state.appointment_type == "VISITA"
+    assert result.state.appointment_date == date(2026, 9, 30)
+    assert result.state.appointment_time == time(14, 0)
+
+    assert result.state.appointment_id is None
+    assert result.state.accepted_meeting_or_visit is False
+    assert result.state.lead_score == 50
+
+    # A instância original permanece inalterada.
+    assert state.appointment_stage == "AWAITING_CONFIRMATION"
+
+
 def test_repeated_confirmation_is_idempotent():
     confirmed = create_service().process(
         create_confirmation_state(),
         "confirmo",
     ).state
 
-    repeated = create_service().process(confirmed, "confirmo")
+    repeated = create_service().process(
+        confirmed,
+        "confirmo",
+    )
 
     assert repeated.state == confirmed
     assert repeated.state.accepted_meeting_or_visit is False
 
 
-@pytest.mark.parametrize("message", ["não", "cancelar", "não quero mais"])
+@pytest.mark.parametrize(
+    "message",
+    ["não", "cancelar", "não quero mais"],
+)
 def test_cancellation_has_no_commercial_effect(message):
     state = create_confirmation_state()
 
@@ -178,3 +228,82 @@ def test_old_state_uses_appointment_defaults():
     assert state.appointment_type is None
     assert state.appointment_date is None
     assert state.appointment_time is None
+
+def test_requests_name_before_confirmation_when_lead_is_unidentified():
+    state = create_state(
+        appointment_stage="AWAITING_TIME",
+        appointment_type="VISITA",
+        appointment_date=date(2026, 10, 5),
+        lead_name=None,
+    )
+
+    result = create_service().process(state, "14h30")
+
+    assert result.state.appointment_stage == "AWAITING_NAME"
+    assert result.state.appointment_time == time(14, 30)
+    assert result.state.lead_name is None
+    assert result.state.accepted_meeting_or_visit is False
+    assert "nome" in result.response.lower()
+
+
+def test_skips_name_collection_when_lead_is_already_identified():
+    state = create_state(
+        appointment_stage="AWAITING_TIME",
+        appointment_type="VISITA",
+        appointment_date=date(2026, 10, 5),
+        lead_name="Rafael",
+    )
+
+    result = create_service().process(state, "14h30")
+
+    assert result.state.appointment_stage == "AWAITING_CONFIRMATION"
+    assert result.state.lead_name == "Rafael"
+    assert "05/10/2026" in result.response
+
+@pytest.mark.parametrize(
+    ("message", "expected_name"),
+    [
+        ("Rafael Almeida", "Rafael Almeida"),
+        ("Meu nome é Rafael Almeida", "Rafael Almeida"),
+        ("Sou Rafael", "Rafael"),
+    ],
+)
+def test_collects_name_before_appointment_confirmation(
+        message,
+        expected_name,
+):
+    state = create_state(
+        appointment_stage="AWAITING_NAME",
+        appointment_type="VISITA",
+        appointment_date=date(2026, 10, 5),
+        appointment_time=time(14, 30),
+        lead_name=None,
+    )
+
+    result = create_service().process(state, message)
+
+    assert result.state.lead_name == expected_name
+    assert result.state.appointment_stage == "AWAITING_CONFIRMATION"
+    assert result.state.accepted_meeting_or_visit is False
+    assert result.state.appointment_id is None
+    assert "05/10/2026" in result.response
+
+
+@pytest.mark.parametrize(
+    "message",
+    ["Sim", "Confirmo", "Quero agendar"],
+)
+def test_rejects_invalid_name_without_losing_appointment(message):
+    state = create_state(
+        appointment_stage="AWAITING_NAME",
+        appointment_type="VISITA",
+        appointment_date=date(2026, 10, 5),
+        appointment_time=time(14, 30),
+    )
+
+    result = create_service().process(state, message)
+
+    assert result.state.appointment_stage == "AWAITING_NAME"
+    assert result.state.lead_name is None
+    assert result.state.appointment_date == date(2026, 10, 5)
+    assert result.state.appointment_time == time(14, 30)
