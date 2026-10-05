@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from app.api.routes.appointments import (
     router as appointments_router,
 )
-
 from app.api.routes.conversations import (
     router as conversations_router,
 )
@@ -15,6 +14,9 @@ from app.api.routes.handoffs import (
 )
 from app.api.routes.info import (
     router as info_router,
+)
+from app.api.routes.lead_follow_ups import (
+    router as lead_follow_ups_router,
 )
 from app.api.routes.properties import (
     router as properties_router,
@@ -29,3 +31,4 @@ api_router.include_router(health_router)
 api_router.include_router(info_router)
 api_router.include_router(properties_router)
 api_router.include_router(conversations_router)
+api_router.include_router(lead_follow_ups_router)
