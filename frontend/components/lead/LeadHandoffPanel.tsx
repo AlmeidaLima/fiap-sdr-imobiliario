@@ -246,7 +246,7 @@ export function LeadHandoffPanel({
                     <HandoffSection title="Imóvel">
                         <HandoffItem
                             label="Título"
-                            value={property.title}
+                            value={property.title ?? NOT_INFORMED}
                         />
                         <HandoffItem
                             label="Bairro"

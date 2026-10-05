@@ -35,7 +35,7 @@ export interface LeadHandoffQualification {
 export interface LeadHandoffProperty {
     id: number;
     external_id: string;
-    title: string;
+    title: string | null;
     neighborhood: string | null;
 
     price: string | null;

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from uuid import uuid4
 
 from app.database.property_repository import PropertyRepository
 from app.database.session import SessionLocal
@@ -128,5 +129,53 @@ def test_property_repository_find_by_filters():
             if persisted is not None:
                 db.delete(persisted)
 
+        db.commit()
+        db.close()
+
+
+def test_find_by_ids_preserves_order_and_ignores_missing_property():
+    db = SessionLocal()
+    created_properties = []
+    token = uuid4().hex
+
+    try:
+        repository = PropertyRepository(db)
+        for index in range(2):
+            property_ = repository.save(
+                Property(
+                    external_id=f"test-find-by-ids-{token}-{index}",
+                    title=f"Imóvel {index}",
+                    description="Teste de busca em lote",
+                    usable_area=70 + index,
+                    bathrooms=2,
+                    bedrooms=3,
+                    parking_spaces=1,
+                    amenities=[],
+                    zip_code=f"8000000{index}",
+                    neighborhood=TEST_NEIGHBORHOOD,
+                    pois=[],
+                    price=Decimal("500000.00") + index,
+                    source="test",
+                    available=True,
+                )
+            )
+            created_properties.append(property_)
+
+        first, second = created_properties
+        results = repository.find_by_ids(
+            [second.id, 2147483647, first.id],
+        )
+
+        assert [property_.id for property_ in results] == [
+            second.id,
+            first.id,
+        ]
+        assert repository.find_by_ids([]) == []
+        assert not db.dirty
+    finally:
+        for property_ in created_properties:
+            persisted = db.get(Property, property_.id)
+            if persisted is not None:
+                db.delete(persisted)
         db.commit()
         db.close()

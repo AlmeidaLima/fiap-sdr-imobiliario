@@ -50,6 +50,10 @@ describe("Chat", () => {
     ).toBeInTheDocument();
 
     expect(
+      screen.getByRole("link", { name: "Dashboard" }),
+    ).toHaveAttribute("href", "/dashboard");
+
+    expect(
       screen.queryByRole("heading", {
         name: "Qualificação do lead",
       }),

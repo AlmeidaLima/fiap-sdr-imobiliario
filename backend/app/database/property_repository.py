@@ -21,6 +21,20 @@ class PropertyRepository:
     def find_by_id(self, property_id: int) -> Property | None:
         return self.db.get(Property, property_id)
 
+    def find_by_ids(self, property_ids: list[int]) -> list[Property]:
+        if not property_ids:
+            return []
+
+        statement = select(Property).where(Property.id.in_(property_ids))
+        properties = self.db.scalars(statement).all()
+        properties_by_id = {property_.id: property_ for property_ in properties}
+
+        return [
+            properties_by_id[property_id]
+            for property_id in property_ids
+            if property_id in properties_by_id
+        ]
+
     def find_all(self) -> list[Property]:
         statement = select(Property).order_by(Property.id)
 
