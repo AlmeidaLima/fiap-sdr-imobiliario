@@ -66,6 +66,8 @@ export interface ConversationTurnRequest {
 
 export interface ConversationTurnResponse {
   conversation_id: string;
+  user_message_id: number;
+  assistant_message_id: number;
   response: string;
   state: ConversationState;
   qualification: ConversationQualification;
@@ -76,6 +78,19 @@ export type ChatMessageRole = "user" | "assistant";
 
 export interface ChatMessage {
   id: string;
+  persistedId?: number;
+  persistedCreatedAt?: string;
   role: ChatMessageRole;
   content: string;
+}
+
+export interface ConversationMessage {
+  id: number;
+  role: ChatMessageRole;
+  content: string;
+  created_at: string;
+}
+
+export interface ConversationMessagesResponse {
+  messages: ConversationMessage[];
 }

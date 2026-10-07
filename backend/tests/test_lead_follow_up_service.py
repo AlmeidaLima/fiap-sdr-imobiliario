@@ -433,6 +433,30 @@ def test_register_attempt_rejects_invalid_channel(
     repository.commit.assert_not_called()
     repository.rollback.assert_not_called()
 
+
+def test_register_attempt_accepts_web_channel(service, repository):
+    follow_up = LeadFollowUp(
+        id=5,
+        lead_id=10,
+        status="PENDING",
+        scheduled_at=NOW,
+        attempt_count=0,
+        idempotency_key="web-channel",
+    )
+    repository.get_by_id_for_update.return_value = follow_up
+    repository.create_attempt.side_effect = lambda attempt: attempt
+    repository.update.side_effect = lambda item: item
+
+    attempt = service.register_attempt(
+        follow_up_id=5,
+        channel="WEB",
+        status="SUCCESS",
+        message="Follow-up web",
+    )
+
+    assert attempt.channel == "WEB"
+    assert attempt.status == "SUCCESS"
+
 def test_register_attempt_rejects_invalid_status(
         service,
         repository,

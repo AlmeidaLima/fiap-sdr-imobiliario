@@ -27,7 +27,7 @@ class LeadFollowUpAttempt(Base):
             name="ck_lead_follow_up_attempts_number",
         ),
         CheckConstraint(
-            "channel IN ('MANUAL', 'EMAIL', 'WHATSAPP')",
+            "channel IN ('MANUAL', 'EMAIL', 'WHATSAPP', 'WEB')",
             name="ck_lead_follow_up_attempts_channel",
         ),
         CheckConstraint(

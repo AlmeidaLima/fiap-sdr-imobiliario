@@ -29,6 +29,22 @@ class MessageRepository:
 
         return message
 
+    def create_without_commit(
+            self,
+            conversation_id: int,
+            role: str,
+            content: str,
+    ) -> Message:
+        message = Message(
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+        )
+        self.db.add(message)
+        self.db.flush()
+        self.db.refresh(message)
+        return message
+
     def find_by_conversation_id(
             self,
             conversation_id: int,
@@ -47,3 +63,20 @@ class MessageRepository:
         return list(
             self.db.scalars(statement).all()
         )
+
+    def list_public_messages(
+            self,
+            conversation_id: int,
+            after_id: int | None = None,
+    ) -> list[Message]:
+        statement = select(Message).where(
+            Message.conversation_id == conversation_id,
+            Message.role.in_(("user", "assistant")),
+        )
+        if after_id is not None:
+            statement = statement.where(Message.id > after_id)
+        statement = statement.order_by(
+            Message.created_at.asc(),
+            Message.id.asc(),
+        )
+        return list(self.db.scalars(statement).all())

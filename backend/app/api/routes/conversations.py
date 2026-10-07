@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.exceptions import ApplicationException
 from app.database.session import get_db
 from app.database.conversation_repository import ConversationRepository
 from app.database.lead_repository import LeadRepository
@@ -11,6 +12,8 @@ from app.database.property_embedding_repository import (
 )
 from app.schemas.conversation import (
     ConversationState,
+    ConversationMessageResponse,
+    ConversationMessagesResponse,
     ConversationTurnRequest,
     ConversationTurnResponse,
 )
@@ -35,6 +38,42 @@ router = APIRouter(
     prefix="/conversations",
     tags=["Conversations"],
 )
+
+
+@router.get(
+    "/{conversation_id}/messages",
+    response_model=ConversationMessagesResponse,
+)
+def get_conversation_messages(
+        conversation_id: str,
+        after_id: int | None = Query(default=None, ge=0),
+        db: Session = Depends(get_db),
+) -> ConversationMessagesResponse:
+    conversation = ConversationRepository(db).find_by_conversation_id(
+        conversation_id
+    )
+    if conversation is None:
+        raise ApplicationException(
+            detail="Conversa não encontrada.",
+            status_code=404,
+            error="conversation_not_found",
+        )
+
+    messages = MessageRepository(db).list_public_messages(
+        conversation_id=conversation.id,
+        after_id=after_id,
+    )
+    return ConversationMessagesResponse(
+        messages=[
+            ConversationMessageResponse(
+                id=message.id,
+                role=message.role,
+                content=message.content,
+                created_at=message.created_at,
+            )
+            for message in messages
+        ]
+    )
 
 
 @router.post(
@@ -89,7 +128,7 @@ def process_conversation_turn(
     # Persiste mensagem recebida do usuário
     # ============================================================
 
-    persistence_service.save_message(
+    user_message = persistence_service.save_message(
         conversation=conversation,
         role="user",
         content=request.message,
@@ -170,7 +209,7 @@ def process_conversation_turn(
         ),
     )
 
-    persistence_service.save_message(
+    assistant_message = persistence_service.save_message(
         conversation=conversation,
         role="assistant",
         content=turn_result.response,
@@ -210,6 +249,8 @@ def process_conversation_turn(
 
     return ConversationTurnResponse(
         conversation_id=turn_result.state.conversation_id,
+        user_message_id=user_message.id,
+        assistant_message_id=assistant_message.id,
         response=turn_result.response,
         state=turn_result.state,
         qualification=turn_result.qualification,

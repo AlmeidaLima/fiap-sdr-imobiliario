@@ -1,7 +1,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.lead_follow_up import LeadFollowUp
@@ -59,6 +59,39 @@ class LeadFollowUpRepository:
             .limit(limit)
         )
         return list(self.db.scalars(statement).all())
+
+    def claim_next_pending(
+            self,
+            due_before: datetime,
+            cursor: tuple[datetime, int] | None = None,
+    ) -> LeadFollowUp | None:
+        conditions = [
+            LeadFollowUp.status == "PENDING",
+            LeadFollowUp.scheduled_at <= due_before,
+        ]
+        if cursor is not None:
+            scheduled_at, follow_up_id = cursor
+            conditions.append(
+                or_(
+                    LeadFollowUp.scheduled_at > scheduled_at,
+                    and_(
+                        LeadFollowUp.scheduled_at == scheduled_at,
+                        LeadFollowUp.id > follow_up_id,
+                    ),
+                )
+            )
+
+        statement = (
+            select(LeadFollowUp)
+            .where(*conditions)
+            .order_by(
+                LeadFollowUp.scheduled_at.asc(),
+                LeadFollowUp.id.asc(),
+            )
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        return self.db.scalar(statement)
 
     def create_attempt(
             self,

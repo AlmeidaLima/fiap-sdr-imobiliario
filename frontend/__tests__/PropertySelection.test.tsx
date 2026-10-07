@@ -2,15 +2,21 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { Chat } from "../components/chat/Chat";
-import { sendConversationTurn } from "../services/conversationService";
+import {
+  getConversationMessages,
+  sendConversationTurn,
+} from "../services/conversationService";
 import type { ConversationTurnResponse } from "../types/conversation";
 import type { PropertySearchResponse } from "../types/property";
 
 vi.mock("../services/conversationService", () => ({
   sendConversationTurn: vi.fn(),
+  getConversationMessages: vi.fn(),
 }));
 
 const mockedSendConversationTurn = vi.mocked(sendConversationTurn);
+const mockedGetConversationMessages = vi.mocked(getConversationMessages);
+let nextMessageId = 1;
 
 const properties: PropertySearchResponse[] = [
   {
@@ -44,8 +50,12 @@ const properties: PropertySearchResponse[] = [
 function createResponse(
   selectedPropertyId: number | null = null,
 ): ConversationTurnResponse {
+  const userMessageId = nextMessageId++;
+  const assistantMessageId = nextMessageId++;
   return {
     conversation_id: "conversation-test",
+    user_message_id: userMessageId,
+    assistant_message_id: assistantMessageId,
     response: selectedPropertyId
       ? "Interesse registrado com sucesso."
       : "Encontrei dois imóveis para você.",
@@ -92,6 +102,8 @@ function sendInitialMessage() {
 describe("seleção explícita de imóvel no Chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    nextMessageId = 1;
+    mockedGetConversationMessages.mockResolvedValue({ messages: [] });
   });
 
   test("envia o id estruturado e aguarda confirmação do backend", async () => {

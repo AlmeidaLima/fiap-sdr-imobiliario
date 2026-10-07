@@ -205,6 +205,7 @@ class LeadFollowUpService:
             "MANUAL",
             "EMAIL",
             "WHATSAPP",
+            "WEB",
         }:
             raise ApplicationException(
                 detail="Canal de contato inválido.",

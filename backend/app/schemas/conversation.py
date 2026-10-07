@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Literal
 
@@ -141,6 +141,10 @@ class ConversationTurnRequest(BaseModel):
 class ConversationTurnResponse(BaseModel):
     conversation_id: str
 
+    user_message_id: int
+
+    assistant_message_id: int
+
     response: str
 
     state: ConversationState
@@ -148,5 +152,18 @@ class ConversationTurnResponse(BaseModel):
     qualification: ConversationQualification
 
     properties: list[PropertySearchResponse] = Field(
+        default_factory=list,
+    )
+
+
+class ConversationMessageResponse(BaseModel):
+    id: int
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+
+
+class ConversationMessagesResponse(BaseModel):
+    messages: list[ConversationMessageResponse] = Field(
         default_factory=list,
     )

@@ -4,6 +4,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.database.conversation_repository import ConversationRepository
+from app.database.message_repository import MessageRepository
+from app.database.session import SessionLocal
 
 
 client = TestClient(app)
@@ -65,6 +68,84 @@ def test_conversation_first_turn_returns_next_question():
     )
 
     assert body["properties"] == []
+    assert isinstance(body["user_message_id"], int)
+    assert isinstance(body["assistant_message_id"], int)
+    assert body["assistant_message_id"] > body["user_message_id"]
+
+
+def test_get_public_conversation_messages_and_after_id():
+    conversation_id = f"test-{uuid4()}"
+    turn = client.post(
+        "/api/v1/conversations/turn",
+        json={
+            "conversation_id": conversation_id,
+            "message": "Quero comprar um apartamento",
+        },
+    )
+    assert turn.status_code == 200
+    body = turn.json()
+
+    db = SessionLocal()
+    try:
+        conversation = ConversationRepository(db).find_by_conversation_id(
+            conversation_id
+        )
+        MessageRepository(db).create(
+            conversation_id=conversation.id,
+            role="system",
+            content="Mensagem interna",
+        )
+    finally:
+        db.close()
+
+    history = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages"
+    )
+    assert history.status_code == 200
+    assert [item["role"] for item in history.json()["messages"]] == [
+        "user", "assistant",
+    ]
+    assert [item["id"] for item in history.json()["messages"]] == [
+        body["user_message_id"],
+        body["assistant_message_id"],
+    ]
+
+    incremental = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages",
+        params={"after_id": body["user_message_id"]},
+    )
+    assert incremental.status_code == 200
+    assert [item["id"] for item in incremental.json()["messages"]] == [
+        body["assistant_message_id"],
+    ]
+
+
+def test_get_messages_returns_empty_and_validates_after_id():
+    conversation_id = f"test-empty-{uuid4()}"
+    db = SessionLocal()
+    try:
+        ConversationRepository(db).create(conversation_id=conversation_id)
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages"
+    )
+    assert response.status_code == 200
+    assert response.json() == {"messages": []}
+
+    invalid = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages?after_id=-1"
+    )
+    assert invalid.status_code == 422
+
+
+def test_get_messages_returns_conversation_not_found():
+    response = client.get(
+        f"/api/v1/conversations/missing-{uuid4()}/messages"
+    )
+    assert response.status_code == 404
+    assert response.json()["error"] == "conversation_not_found"
 
 
 def test_conversation_api_preserves_state_between_turns():
