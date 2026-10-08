@@ -1,3 +1,6 @@
+import io
+import logging
+from contextlib import contextmanager
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -5,6 +8,33 @@ from unittest.mock import Mock
 from app.agents.nodes import process_message_node
 from app.schemas.conversation import ConversationQualification, ConversationState
 from app.services.llm_client import LLMClientError
+from app.core.observability import (
+    SafeKeyValueFormatter,
+    reset_request_id,
+    set_request_id,
+)
+
+
+@contextmanager
+def capture_application_logs(request_id="request-agent-001"):
+    logger = logging.getLogger("app")
+    original_handlers = list(logger.handlers)
+    original_level = logger.level
+    original_propagate = logger.propagate
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(SafeKeyValueFormatter())
+    logger.handlers = [handler]
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    token = set_request_id(request_id)
+    try:
+        yield stream
+    finally:
+        reset_request_id(token)
+        logger.handlers = original_handlers
+        logger.setLevel(original_level)
+        logger.propagate = original_propagate
 
 
 def create_property_result(property_id=1):
@@ -382,3 +412,113 @@ def test_generate_response_node_falls_back_when_search_has_no_results():
     )
 
     assert "Não encontrei imóveis compatíveis" in result["response"]
+
+
+def test_llm_success_log_contains_request_id_without_content():
+    from app.agents.nodes import generate_response_node
+
+    llm_service = Mock()
+    llm_service.generate_response.return_value = "RESPOSTA_SENSIVEL_LLM"
+    state = {
+        "conversation_id": "agent-log-success",
+        "message": "MENSAGEM_SENSIVEL_USUARIO",
+        "conversation_state": ConversationState(
+            conversation_id="agent-log-success",
+        ),
+        "qualification": ConversationQualification(
+            qualified=False,
+            missing_fields=["max_price"],
+            next_question="Pergunta seguinte",
+        ),
+    }
+
+    with capture_application_logs() as output:
+        result = generate_response_node(state, llm_service)
+
+    assert result["response"] == "RESPOSTA_SENSIVEL_LLM"
+    assert "event=llm_call_completed" in output.getvalue()
+    assert "request_id=request-agent-001" in output.getvalue()
+    assert "conversation_id=agent-log-success" in output.getvalue()
+    assert "MENSAGEM_SENSIVEL_USUARIO" not in output.getvalue()
+    assert "RESPOSTA_SENSIVEL_LLM" not in output.getvalue()
+
+
+def test_llm_fallback_log_is_safe_and_contains_request_id():
+    from app.agents.nodes import generate_response_node
+
+    llm_service = Mock()
+    llm_service.generate_response.side_effect = LLMClientError(
+        "SEGREDO_TESTE_LLM"
+    )
+    state = {
+        "conversation_id": "agent-log-fallback",
+        "message": "MENSAGEM_SENSIVEL_USUARIO",
+        "conversation_state": ConversationState(
+            conversation_id="agent-log-fallback",
+        ),
+        "qualification": ConversationQualification(
+            qualified=False,
+            missing_fields=["max_price"],
+            next_question="Pergunta determinística",
+        ),
+    }
+
+    with capture_application_logs() as output:
+        result = generate_response_node(state, llm_service)
+
+    assert result["response"] == "Pergunta determinística"
+    assert "event=llm_fallback_activated" in output.getvalue()
+    assert "request_id=request-agent-001" in output.getvalue()
+    assert "error_type=LLMClientError" in output.getvalue()
+    assert "SEGREDO_TESTE_LLM" not in output.getvalue()
+    assert "MENSAGEM_SENSIVEL_USUARIO" not in output.getvalue()
+
+
+def test_property_search_logs_count_duration_and_request_id():
+    from app.agents.nodes import search_properties_node
+
+    search_service = Mock()
+    search_service.search.return_value = [create_property_result()]
+    state = {
+        "conversation_id": "agent-search-log",
+        "conversation_state": ConversationState(
+            conversation_id="agent-search-log",
+        ),
+        "limit": 5,
+    }
+
+    with capture_application_logs() as output:
+        result = search_properties_node(state, search_service)
+
+    assert len(result["properties"]) == 1
+    assert "event=property_search_started" in output.getvalue()
+    assert "event=property_search_completed" in output.getvalue()
+    assert "request_id=request-agent-001" in output.getvalue()
+    assert "property_count=1" in output.getvalue()
+    assert "duration_ms=" in output.getvalue()
+
+
+def test_property_search_failure_log_does_not_include_exception_text():
+    from app.agents.nodes import search_properties_node
+
+    search_service = Mock()
+    search_service.search.side_effect = RuntimeError(
+        "SEGREDO_TESTE_BUSCA"
+    )
+    state = {
+        "conversation_id": "agent-search-failure",
+        "conversation_state": ConversationState(
+            conversation_id="agent-search-failure",
+        ),
+    }
+
+    with capture_application_logs() as output:
+        try:
+            search_properties_node(state, search_service)
+        except RuntimeError:
+            pass
+
+    assert "event=property_search_failed" in output.getvalue()
+    assert "error_type=RuntimeError" in output.getvalue()
+    assert "request_id=request-agent-001" in output.getvalue()
+    assert "SEGREDO_TESTE_BUSCA" not in output.getvalue()

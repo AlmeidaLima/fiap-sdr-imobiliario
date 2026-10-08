@@ -2,6 +2,7 @@ import logging
 import signal
 import threading
 
+from app.core.observability import configure_logging
 from app.database.conversation_repository import ConversationRepository
 from app.database.lead_follow_up_repository import LeadFollowUpRepository
 from app.database.message_repository import MessageRepository
@@ -78,9 +79,10 @@ def run_worker(
     LOGGER.info("follow_up_worker_stopped")
 
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+def main() -> None:
+    configure_logging("follow_up_worker")
     run_worker()
+
+
+if __name__ == "__main__":
+    main()

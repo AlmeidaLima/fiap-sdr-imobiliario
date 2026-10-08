@@ -1,10 +1,12 @@
+import io
 import logging
 import threading
 from unittest.mock import Mock, patch
 
 from sqlalchemy.orm import configure_mappers
 
-from scripts.run_lead_follow_up_worker import run_worker
+from app.core.observability import configure_logging
+from scripts.run_lead_follow_up_worker import main, run_worker
 
 
 def test_worker_bootstrap_loads_required_models():
@@ -99,3 +101,36 @@ def test_database_failure_log_does_not_include_exception_text(
 
     assert "follow_up_database_unavailable" in caplog.text
     assert "SEGREDO_TESTE_FOLLOW_UP" not in caplog.text
+
+
+@patch("scripts.run_lead_follow_up_worker.run_worker")
+@patch("scripts.run_lead_follow_up_worker.configure_logging")
+def test_main_configures_shared_logging_before_worker(
+        configure_logging,
+        worker,
+):
+    main()
+
+    configure_logging.assert_called_once_with("follow_up_worker")
+    worker.assert_called_once_with()
+
+
+def test_shared_formatter_renders_safe_worker_metadata():
+    output = io.StringIO()
+    logger = configure_logging("test_follow_up_worker", stream=output)
+
+    logger.info(
+        "follow_up_delivered",
+        extra={
+            "follow_up_id": 10,
+            "lead_id": 20,
+            "status": "COMPLETED",
+            "message_content": "SEGREDO_TESTE_FOLLOW_UP",
+        },
+    )
+
+    assert "event=follow_up_delivered" in output.getvalue()
+    assert "follow_up_id=10" in output.getvalue()
+    assert "lead_id=20" in output.getvalue()
+    assert "status=COMPLETED" in output.getvalue()
+    assert "SEGREDO_TESTE_FOLLOW_UP" not in output.getvalue()
