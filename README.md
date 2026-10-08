@@ -1,2405 +1,315 @@
-    # Agente SDR Imobiliário com IA
-
-    POC desenvolvida para o Hackathon FIAP com o objetivo de criar um agente SDR imobiliário com IA capaz de qualificar leads, manter contexto de conversação, buscar imóveis e apoiar o atendimento comercial.
-
-    O projeto utiliza uma arquitetura preparada para evolução para RAG, agentes e integração com canais de atendimento, mantendo componentes locais e open source sempre que possível.
-
-    ---
-
-    ## Status do projeto
-
-    Projeto em desenvolvimento.
-
-    ### Missão 01 — Fundação do projeto
-
-    **Status: Concluída**
-
-    - [x] Repositório criado
-    - [x] Estrutura de diretórios criada
-    - [x] FastAPI executando
-    - [x] Next.js executando
-    - [x] PostgreSQL executando
-    - [x] pgvector habilitado
-    - [x] Docker Compose funcionando
-    - [x] Endpoint de health funcionando
-    - [x] Swagger disponível
-    - [x] Frontend comunicando com backend
-    - [x] `.env.example` criado
-    - [x] `.gitignore` criado
-    - [x] README criado
-    - [x] ARCHITECTURE criado
-    - [x] AGENTS criado
-    - [x] Primeiros testes Pytest executando
-    - [x] Stack validada em ambiente Docker
-
-    ---
-
-    ### Missão 02 — PostgreSQL + pgvector
-
-    **Status: Concluída**
-
-    - [x] SQLAlchemy 2.x configurado
-    - [x] psycopg 3 configurado
-    - [x] Conexão Backend → PostgreSQL validada
-    - [x] `DATABASE_URL` centralizada
-    - [x] Engine SQLAlchemy criada
-    - [x] `SessionLocal` implementada
-    - [x] `get_db()` implementado
-    - [x] `Base` declarativa criada
-    - [x] Teste de conexão com PostgreSQL criado
-    - [x] Teste de gerenciamento de sessão criado
-    - [x] pgvector validado pela aplicação
-    - [x] Inicialização automática do pgvector preparada
-    - [x] Alembic inicializado e configurado
-    - [x] Alembic integrado ao `Base.metadata`
-    - [x] Migration baseline criada e versionada
-    - [x] Ciclo de migrations validado
-    - [x] Testes executados dentro do container Docker
-
-    #### Persistência
-
-    A camada de persistência utiliza:
-
-    - SQLAlchemy 2.x
-    - psycopg 3
-    - PostgreSQL
-    - pgvector
-
-    A conexão é configurada pela variável:
-
-    ```text
-    DATABASE_URL
-    ```
-
-    A configuração geral da aplicação está centralizada em:
-
-    ```text
-    backend/app/core/config.py
-    ```
-
-    O gerenciamento das sessões SQLAlchemy é realizado por:
-
-    ```text
-    backend/app/database/session.py
-    ```
-
-    A arquitetura básica de persistência é:
-
-    ```text
-    FastAPI
-       │
-       ▼
-    get_db()
-       │
-       ▼
-    SessionLocal
-       │
-       ▼
-    SQLAlchemy
-       │
-       ▼
-    psycopg
-       │
-       ▼
-    PostgreSQL + pgvector
-    ```
-
-    #### Migrations
-
-    As alterações estruturais do banco são controladas pelo Alembic.
-
-    Principais comandos:
-
-    ```bash
-    docker compose exec backend alembic current
-    ```
-
-    ```bash
-    docker compose exec backend alembic heads
-    ```
-
-    ```bash
-    docker compose exec backend alembic upgrade head
-    ```
-
-    ---
-
-    ### Missão 03 — API e estrutura
-
-    **Status: Concluída**
-
-    A Missão 03 estruturou a API FastAPI para permitir o crescimento da aplicação de forma modular.
-
-    - [x] Router principal criado
-    - [x] Endpoints versionados em `/api/v1`
-    - [x] Endpoint de health padronizado
-    - [x] Endpoint de informações da aplicação
-    - [x] Schemas Pydantic separados
-    - [x] Configuração centralizada
-    - [x] Tratamento de erros HTTP
-    - [x] Tratamento de erros da aplicação
-    - [x] Tratamento de erros de validação
-    - [x] Contrato padrão de erro
-    - [x] Testes automatizados dos endpoints
-    - [x] Regressão executada no Docker
-
-    #### Endpoints principais
-
-    ```text
-    GET /api/v1/health
-    GET /api/v1/info
-    ```
-
-    O router principal está em:
-
-    ```text
-    backend/app/api/router.py
-    ```
-
-    As rotas específicas estão em:
-
-    ```text
-    backend/app/api/routes/
-    ```
-
-    #### Configuração centralizada
-
-    As configurações gerais da aplicação são definidas em:
-
-    ```text
-    backend/app/core/config.py
-    ```
-
-    O objeto `settings` concentra informações como:
-
-    ```text
-    app_name
-    app_description
-    app_version
-    database_url
-    ```
-
-    #### Tratamento de erros
-
-    A aplicação possui handlers centralizados em:
-
-    ```text
-    backend/app/core/handlers/
-    ```
-
-    São tratados:
-
-    ```text
-    HTTPException
-    ApplicationException
-    RequestValidationError
-    ```
-
-    O contrato de erro é padronizado pela aplicação.
-
-    ---
-
-    ### Missão 04 — Modelo e base de imóveis
-
-    **Status: Concluída**
-
-    A Missão 04 estruturou o domínio de imóveis e importou uma base imobiliária real para utilização pelo agente.
-
-    - [x] Dataset imobiliário selecionado
-    - [x] Dataset analisado
-    - [x] Modelo `Property` criado
-    - [x] Campos estruturados e normalizados
-    - [x] Tabela `properties` criada
-    - [x] Migrations Alembic criadas
-    - [x] Repository de imóveis implementado
-    - [x] Service de imóveis implementado
-    - [x] Endpoint de consulta de imóveis implementado
-    - [x] Script de importação criado
-    - [x] Identificador externo determinístico implementado
-    - [x] Importação idempotente
-    - [x] Base importada para PostgreSQL
-    - [x] Testes de repository implementados
-    - [x] Testes de service implementados
-    - [x] Testes da API implementados
-    - [x] Dataset versionado no projeto
-    - [x] Origem do dataset documentada
-
-    #### Dataset
-
-    A base utilizada no projeto é:
-
-    ```text
-    Curitiba Apartment Real Estate Data
-    ```
-
-    Arquivo:
-
-    ```text
-    data/raw/curitiba_apartment_real_estate_data.csv
-    ```
-
-    Quantidade importada:
-
-    ```text
-    18.760 imóveis
-    ```
-
-    #### Origem e atribuição do dataset
-
-    O dataset foi obtido no Kaggle:
-
-    **Curitiba Apartment Prices**
-
-    Autor/publicador:
-
-    ```text
-    wittmannf
-    ```
-
-    A base é utilizada neste projeto exclusivamente como fonte de dados para fins acadêmicos, experimentação e desenvolvimento do POC do Hackathon FIAP.
-
-    O projeto mantém a atribuição da origem do dataset e sua utilização deve respeitar os termos e a licença informados pelo publicador da base.
-
-    #### Modelo Property
-
-    O domínio imobiliário possui informações como:
-
-    ```text
-    external_id
-    title
-    description
-    usable_area
-    total_area
-    bedrooms
-    suites
-    bathrooms
-    parking_spaces
-    street
-    zip_code
-    neighborhood
-    price
-    monthly_condo_fee
-    yearly_iptu
-    amenities
-    pois
-    source
-    available
-    ```
-
-    O campo:
-
-    ```text
-    external_id
-    ```
-
-    é utilizado como identificador externo determinístico, permitindo que a importação seja executada de forma idempotente.
-
-    #### Consulta de imóveis
-
-    Endpoint:
-
-    ```text
-    GET /api/v1/properties
-    ```
-
-    A consulta permite utilizar filtros estruturados sobre os imóveis armazenados no PostgreSQL.
-
-    ---
-
-    ### Missão 05 — Embeddings e busca semântica
-
-    **Status: Concluída**
-
-    A Missão 05 adicionou a primeira camada de recuperação semântica do projeto.
-
-    Os imóveis armazenados no PostgreSQL são transformados em documentos textuais normalizados, convertidos em embeddings e persistidos utilizando `pgvector`.
-
-    Isso permite que o agente pesquise imóveis utilizando linguagem natural, sem depender apenas de correspondências exatas de campos ou palavras.
-
-    #### Definition of Done
-
-    - [x] Modelo de embeddings definido
-    - [x] Modelo executado localmente
-    - [x] Dependência de API externa não necessária para embeddings
-    - [x] `sentence-transformers` integrado ao backend
-    - [x] Dimensão dos embeddings definida
-    - [x] Tabela `property_embeddings` criada
-    - [x] Migration Alembic criada
-    - [x] Integração com pgvector validada
-    - [x] Model `PropertyEmbedding` criado
-    - [x] `EmbeddingService` implementado
-    - [x] Embedding de documentos implementado
-    - [x] Embedding de consultas implementado
-    - [x] `PropertyDocumentService` implementado
-    - [x] Dados estruturados incorporados ao documento
-    - [x] Amenities normalizadas
-    - [x] POIs normalizados
-    - [x] HTML removido antes da geração dos embeddings
-    - [x] Espaços e textos normalizados
-    - [x] Limite de tamanho do documento definido
-    - [x] `PropertyEmbeddingRepository` implementado
-    - [x] Persistência vetorial implementada
-    - [x] Busca por similaridade implementada
-    - [x] `similarity_score` implementado
-    - [x] `PropertySemanticSearchService` implementado
-    - [x] Endpoint de busca semântica implementado
-    - [x] Consulta em linguagem natural implementada
-    - [x] Parâmetro `limit` implementado
-    - [x] Script de indexação implementado
-    - [x] Indexação idempotente
-    - [x] Processamento em lotes
-    - [x] Recuperação após interrupção
-    - [x] Tratamento de erros durante a indexação
-    - [x] Base completa indexada
-    - [x] 18.760 imóveis com embeddings
-    - [x] 0 imóveis disponíveis pendentes
-    - [x] 0 embeddings duplicados
-    - [x] 0 erros na indexação completa
-    - [x] Busca semântica validada com a base completa
-    - [x] Testes automatizados do serviço de embeddings
-    - [x] Testes automatizados da construção dos documentos
-    - [x] Testes automatizados do repository
-    - [x] Teste de integração da similaridade vetorial
-    - [x] Testes automatizados do serviço de busca semântica
-    - [x] Testes automatizados do endpoint semântico
-    - [x] Regressão completa do backend validada
-
-    ---
-
-    ### Missão 06 — Busca híbrida de imóveis
-
-    **Status: Concluída**
-
-    A Missão 06 evoluiu a recuperação de imóveis combinando a busca semântica da Missão 05 com filtros estruturados determinísticos.
-
-    A estratégia permite utilizar linguagem natural para representar preferências subjetivas do lead, mantendo restrições objetivas como bairro, preço, quartos e área útil como filtros obrigatórios.
-
-    #### Definition of Done
-
-    - [x] Busca semântica da Missão 05 reutilizada
-    - [x] `PropertyEmbeddingRepository` evoluído para busca com filtros estruturados
-    - [x] Filtro por bairro
-    - [x] Filtro por preço mínimo
-    - [x] Filtro por preço máximo
-    - [x] Filtro por quantidade mínima de quartos
-    - [x] Filtro por quantidade mínima de banheiros
-    - [x] Filtro por quantidade mínima de vagas
-    - [x] Filtro por área útil mínima
-    - [x] Filtro por disponibilidade
-    - [x] Ranking por similaridade vetorial preservado
-    - [x] `PropertyHybridSearchService` implementado
-    - [x] Schema `PropertySearchResponse` implementado
-    - [x] Endpoint `GET /api/v1/properties/hybrid-search` implementado
-    - [x] Parâmetro `q` obrigatório e validado
-    - [x] Parâmetro `limit` validado entre 1 e 20
-    - [x] Validações de filtros numéricos implementadas
-    - [x] Handler de validação ajustado para serialização de valores como `Decimal`
-    - [x] Teste do repository da busca híbrida
-    - [x] Teste do service da busca híbrida
-    - [x] Testes da API da busca híbrida
-    - [x] Busca híbrida validada contra a base real
-    - [x] Filtros objetivos validados em conjunto com o ranking semântico
-    - [x] Alteração da consulta textual validada com mudança do ranking
-    - [x] Base com 18.760 imóveis e 18.760 embeddings disponível para consulta
-    - [x] Regressão completa executada
-    - [x] 34 testes automatizados passando
-
-    #### Endpoint de busca híbrida
-
-    ```text
-    GET /api/v1/properties/hybrid-search
-    ```
-
-    Exemplo conceitual:
-
-    ```text
-    GET /api/v1/properties/hybrid-search?q=apartamento para família com academia e churrasqueira&neighborhood=Boa Vista&max_price=700000&min_bedrooms=3&min_usable_area=70&limit=5
-    ```
-
-    A consulta combina dois tipos de critérios:
-
-    ```text
-    Preferências semânticas             Restrições estruturadas
-    "para família"                     bairro = Boa Vista
-    "academia"                         preço <= 700000
-    "churrasqueira"                    quartos >= 3
-                                        área útil >= 70 m²
-    ```
-
-    Somente imóveis que atendem aos filtros estruturados participam do resultado, e esses candidatos são ordenados por similaridade semântica.
-
-    #### Validação com a base real
-
-    A primeira consulta validada foi:
-
-    ```text
-    apartamento para família com academia e churrasqueira
-    ```
-
-    com os filtros:
-
-    ```text
-    Bairro: Boa Vista
-    Preço máximo: R$ 700.000
-    Quartos: mínimo 3
-    Área útil: mínimo 70 m²
-    ```
-
-    Top 5 obtido:
-
-    ```text
-    4397
-    5703
-    4270
-    850
-    440
-    ```
-
-    Mantendo os mesmos filtros e alterando somente a consulta para:
-
-    ```text
-    apartamento tranquilo próximo a transporte público
-    ```
-
-    o Top 5 passou a ser:
-
-    ```text
-    4397
-    6611
-    2302
-    7094
-    8997
-    ```
-
-    Quatro dos cinco imóveis do Top 5 foram alterados, enquanto os filtros estruturados continuaram sendo respeitados. Isso evidencia que a intenção textual influencia o ranking semântico sem flexibilizar as restrições objetivas.
-
-    #### Arquitetura da busca híbrida
-
-    ```text
-    Consulta do lead
-          │
-          ├── linguagem natural ──> EmbeddingService
-          │                              │
-          │                              ▼
-          │                        vetor da consulta
-          │
-          └── filtros objetivos ──> filtros SQL/SQLAlchemy
-                                         │
-                        ┌────────────────┘
-                        ▼
-              PropertyHybridSearchService
-                        │
-                        ▼
-            PropertyEmbeddingRepository
-                        │
-                        ▼
-               PostgreSQL + pgvector
-                        │
-                        ▼
-            candidatos que cumprem filtros
-                        │
-                        ▼
-              ranking por similaridade
-    ```
-
-    ---
-
-    ### Missão 07 — Interpretação da intenção e busca em linguagem natural
-
-    **Status: Concluída**
-
-    A Missão 07 adicionou uma camada de interpretação determinística da mensagem do lead. Agora o consumidor pode enviar uma frase em linguagem natural, e o backend extrai automaticamente os critérios estruturados antes de delegar a recuperação para a busca híbrida da Missão 06.
-
-    A implementação atual utiliza regras e expressões regulares, mantendo a interpretação desacoplada da busca. Isso prepara a arquitetura para substituir ou complementar o parser por um LLM no futuro sem alterar a camada de recuperação imobiliária.
-
-    #### Definition of Done
-
-    - [x] Schema `PropertySearchIntent` implementado
-    - [x] Contrato HTTP `PropertyNaturalLanguageSearchRequest` implementado
-    - [x] Campos não informados tratados como `None`
-    - [x] Validação de valores por Pydantic
-    - [x] `PropertySearchIntentService` implementado
-    - [x] Normalização básica da mensagem
-    - [x] Extração de bairro
-    - [x] Extração de preço máximo
-    - [x] Suporte a preço no formato `700 mil`
-    - [x] Suporte a preço no formato `R$ 650.000`
-    - [x] Extração de quantidade mínima de quartos
-    - [x] Extração de quantidade mínima de banheiros
-    - [x] Extração de quantidade mínima de vagas
-    - [x] Extração de área útil mínima
-    - [x] Preferências subjetivas preservadas em `semantic_query`
-    - [x] `PropertyNaturalLanguageSearchService` implementado
-    - [x] Integração entre interpretação da intenção e `PropertyHybridSearchService`
-    - [x] Endpoint `POST /api/v1/properties/natural-language-search` implementado
-    - [x] `message` obrigatório e com tamanho mínimo validado
-    - [x] `limit` validado entre 1 e 20
-    - [x] `limit=5` utilizado como padrão
-    - [x] Testes automatizados do schema de intenção
-    - [x] Testes automatizados do interpretador
-    - [x] Teste da orquestração entre intenção e busca híbrida
-    - [x] Testes automatizados do endpoint de linguagem natural
-    - [x] Teste ponta a ponta executado contra a base real
-    - [x] Extração do parser validada diretamente
-    - [x] Base com 18.760 imóveis e 18.760 embeddings utilizada na validação
-    - [x] Regressão completa executada
-    - [x] 48 testes automatizados passando
-
-    #### Endpoint de busca em linguagem natural
-
-    ```text
-    POST /api/v1/properties/natural-language-search
-    ```
-
-    Exemplo de requisição:
-
-    ```json
-    {
-      "message": "Quero um apartamento no Boa Vista com 3 quartos, pelo menos 70 m², até 700 mil. Gostaria de academia e churrasqueira.",
-      "limit": 5
-    }
-    ```
-
-    O parser transforma a mensagem em uma intenção estruturada equivalente a:
-
-    ```text
-    neighborhood        = Boa Vista
-    max_price           = 700000
-    min_bedrooms        = 3
-    min_usable_area     = 70
-    min_price           = null
-    min_bathrooms       = null
-    min_parking_spaces  = null
-    semantic_query      = mensagem do lead
-    ```
-
-    #### Validação ponta a ponta
-
-    A mensagem acima retornou cinco imóveis reais, todos respeitando simultaneamente os filtros extraídos:
-
-    ```text
-    ID     Bairro       Preço       Quartos   Área    Similaridade
-    8774   Boa Vista    279.990       3        73       0,8820
-    5703   Boa Vista    671.955       3        85       0,8730
-    4919   Boa Vista    575.910       3        88       0,8700
-    7094   Boa Vista    475.900       3        71       0,8700
-    545    Boa Vista    699.000       3        87       0,8696
-    ```
-
-    O teste comprovou o fluxo completo:
-
-    ```text
-    Mensagem do lead
-            │
-            ▼
-    PropertySearchIntentService
-            │
-            ▼
-    PropertySearchIntent
-            │
-            ├── filtros objetivos
-            │   bairro / preço / quartos / área
-            │
-            └── semantic_query
-                     │
-                     ▼
-    PropertyNaturalLanguageSearchService
-                     │
-                     ▼
-    PropertyHybridSearchService
-                     │
-            ┌────────┴────────┐
-            ▼                 ▼
-       filtros SQL        embedding
-            │                 │
-            └────────┬────────┘
-                     ▼
-           PostgreSQL + pgvector
-                     │
-                     ▼
-              imóveis relevantes
-    ```
-
-    ---
-
-    ### Missão 08 — Estado de conversa e qualificação mínima do lead
-
-    **Status: Concluída**
-
-    A Missão 08 adicionou continuidade conversacional ao backend. O agente passa a acumular os critérios informados pelo lead ao longo de vários turnos, preservar informações anteriores, substituir critérios alterados e identificar quais dados ainda faltam para iniciar a busca de imóveis.
-
-    Nesta etapa, a qualificação é determinística e representa a **qualificação mínima para busca de imóveis**. A conversa é considerada pronta para busca quando possui bairro, preço máximo e quantidade mínima de quartos. A qualificação comercial completa do SDR, incluindo intenção de compra/aluguel/investimento, urgência, lead score e persistência do lead, permanece como evolução posterior.
-
-    #### Definition of Done
-
-    - [x] `ConversationState` implementado
-    - [x] Identificação da conversa por `conversation_id`
-    - [x] Estado acumulado entre múltiplos turnos
-    - [x] Preservação dos critérios informados anteriormente
-    - [x] Sobrescrita de critérios quando o lead altera uma preferência
-    - [x] Acúmulo de preferências semânticas
-    - [x] Integração com `PropertySearchIntentService`
-    - [x] Proteção para não interpretar a expressão `na verdade` como bairro
-    - [x] `ConversationQualificationService` implementado
-    - [x] Identificação dos campos obrigatórios ainda ausentes
-    - [x] Geração determinística da próxima pergunta
-    - [x] Busca de imóveis bloqueada enquanto a conversa não estiver qualificada
-    - [x] `ConversationPropertySearchService` implementado
-    - [x] Integração da conversa qualificada com `PropertyHybridSearchService`
-    - [x] Endpoint `POST /api/v1/conversations/turn` implementado
-    - [x] Testes unitários de estado, merge, fluxo e qualificação
-    - [x] Testes da integração conversa → busca híbrida
-    - [x] Teste de API em múltiplos turnos
-    - [x] Teste ponta a ponta utilizando PostgreSQL + pgvector e a base real
-    - [x] Validação dos imóveis retornados contra bairro, preço e quartos acumulados
-    - [x] Regressão completa executada
-    - [x] 69 testes automatizados passando
-
-    #### Endpoint conversacional
-
-    ```text
-    POST /api/v1/conversations/turn
-    ```
-
-    Exemplo de evolução da conversa:
-
-    ```text
-    Turno 1
-    Lead: Quero um apartamento no Boa Vista
-
-    Estado:
-    neighborhood = Boa Vista
-    max_price = null
-    min_bedrooms = null
-
-    Próxima pergunta:
-    Qual é o valor máximo que você pretende investir no imóvel?
-
-    Turno 2
-    Lead: Até 700 mil
-
-    Estado acumulado:
-    neighborhood = Boa Vista
-    max_price = 700000
-    min_bedrooms = null
-
-    Próxima pergunta:
-    Quantos quartos você procura?
-
-    Turno 3
-    Lead: Quero pelo menos 3 quartos
-
-    Estado acumulado:
-    neighborhood = Boa Vista
-    max_price = 700000
-    min_bedrooms = 3
-    qualified = true
-    ```
-
-    Quando a qualificação mínima é atingida, o fluxo executa a busca híbrida e retorna imóveis compatíveis com os critérios acumulados.
-
-    #### Fluxo implementado
-
-    ```text
-    Mensagem do lead
-           │
-           ▼
-    PropertySearchIntentService
-           │
-           ▼
-    ConversationService
-           │
-           ├── atualiza ConversationState
-           │
-           ▼
-    ConversationQualificationService
-           │
-           ├── não qualificado ──> próxima pergunta
-           │
-           └── qualificado
-                  │
-                  ▼
-    ConversationPropertySearchService
-                  │
-                  ▼
-    PropertyHybridSearchService
-                  │
-           ┌──────┴──────┐
-           ▼             ▼
-     filtros SQL      embedding
-           │             │
-           └──────┬──────┘
-                  ▼
-         PostgreSQL + pgvector
-                  │
-                  ▼
-           imóveis compatíveis
-    ```
-
-    #### Estado conversacional atual
-
-    O estado suporta os seguintes critérios:
-
-    ```text
-    conversation_id
-    neighborhood
-    min_price
-    max_price
-    min_bedrooms
-    min_bathrooms
-    min_parking_spaces
-    min_usable_area
-    semantic_preferences
-    ```
-
-    Na conclusão da Missão 08, o estado ainda era devolvido pela API e podia ser reenviado pelo cliente no turno seguinte. A Missão 09 evoluiu esse fluxo com persistência e recuperação automática por `conversation_id`.
-
-
-    ## Modelo de embeddings
-
-    O modelo selecionado para geração dos embeddings foi:
-
-    ```text
-    intfloat/multilingual-e5-small
-    ```
-
-    O modelo é carregado através da biblioteca:
-
-    ```text
-    sentence-transformers
-    ```
-
-    A geração dos embeddings ocorre localmente, sem necessidade de utilizar uma API externa de IA.
-
-    ### Dimensão
-
-    Cada imóvel é representado por um vetor de:
-
-    ```text
-    384 dimensões
-    ```
-
-    Esses vetores são armazenados no PostgreSQL utilizando:
-
-    ```text
-    pgvector
-    ```
-
-    Arquitetura:
-
-    ```text
-    Property
-       │
-       ▼
-    PropertyDocumentService
-       │
-       ▼
-    Documento normalizado
-       │
-       ▼
-    EmbeddingService
-       │
-       ▼
-    multilingual-e5-small
-       │
-       ▼
-    Vector(384)
-       │
-       ▼
-    PostgreSQL + pgvector
-    ```
-
-    ---
-
-    ## Construção do documento semântico
-
-    Antes da geração do embedding, cada imóvel é transformado em um documento textual pelo:
-
-    ```text
-    PropertyDocumentService
-    ```
-
-    O documento pode incorporar informações como:
-
-    ```text
-    Título
-    Bairro
-    Rua
-    CEP
-    Área útil
-    Área total
-    Quartos
-    Suítes
-    Banheiros
-    Vagas
-    Preço
-    Condomínio
-    IPTU
-    Comodidades
-    Pontos de interesse
-    Descrição
-    ```
-
-    Exemplo conceitual:
-
-    ```text
-    Título: Apartamento no Boa Vista.
-    Bairro: Boa Vista.
-    Área útil: 77 m².
-    Quartos: 3.
-    Suítes: 1.
-    Banheiros: 2.
-    Vagas: 1.
-    Preço: R$ 595000.
-    Comodidades: churrasqueira, academia, aceita pets.
-    Pontos de interesse: ponto de ônibus, farmácia.
-    Descrição: Apartamento ensolarado e bem localizado.
-    ```
-
-    ### Normalização
-
-    Antes da vetorização são realizadas operações como:
-
-    - conversão de entidades HTML;
-    - remoção de `<br>`;
-    - remoção de outras tags HTML;
-    - normalização de espaços;
-    - normalização de amenities;
-    - normalização dos pontos de interesse;
-    - limitação do documento.
-
-    O limite atual é:
-
-    ```text
-    MAX_DOCUMENT_LENGTH = 4000
-    ```
-
-    O conteúdo original da propriedade permanece preservado na tabela `properties`.
-
-    A limpeza é aplicada ao documento utilizado para geração do embedding.
-
-    ---
-
-    ## Amenities
-
-    As amenities do dataset são convertidas para termos mais adequados à busca em português.
-
-    Exemplos:
-
-    ```text
-    BARBECUE_GRILL     → churrasqueira
-    GYM                → academia
-    POOL               → piscina
-    PARTY_HALL         → salão de festas
-    GOURMET_SPACE      → espaço gourmet
-    GOURMET_BALCONY    → varanda gourmet
-    PETS_ALLOWED       → aceita pets
-    SPORTS_COURT       → quadra esportiva
-    PLAYGROUND         → playground
-    CONCIERGE_24H      → portaria 24 horas
-    AIR_CONDITIONING   → ar-condicionado
-    ```
-
-    Essa normalização melhora o conteúdo utilizado pelo modelo de embeddings.
-
-    ---
-
-    ## Pontos de interesse
-
-    Os POIs também são incorporados ao documento semântico.
-
-    Exemplos de categorias:
-
-    ```text
-    BS → ponto de ônibus
-    TS → transporte
-    CS → comércio
-    PH → farmácia
-    CH → saúde
-    VP → pet shop ou veterinário
-    ```
-
-    Isso permite consultas como:
-
-    ```text
-    apartamento próximo a transporte público
-    ```
-
-    mesmo quando a informação relevante está nos pontos de interesse e não diretamente no título do anúncio.
-
-    ---
-
-    ## Persistência dos embeddings
-
-    Os embeddings são armazenados na tabela:
-
-    ```text
-    property_embeddings
-    ```
-
-    Cada registro mantém a associação com um imóvel através de:
-
-    ```text
-    property_id
-    ```
-
-    e armazena informações como:
-
-    ```text
-    content
-    embedding
-    embedding_model
-    ```
-
-    A dimensão esperada do vetor é:
-
-    ```text
-    384
-    ```
-
-    ---
-
-    ## Indexação dos imóveis
-
-    O script responsável pela indexação está em:
-
-    ```text
-    backend/scripts/index_property_embeddings.py
-    ```
-
-    A indexação é:
-
-    ```text
-    idempotente
-    ```
-
-    Imóveis que já possuem embedding não são processados novamente.
-
-    O script também trabalha em lotes, permitindo controlar a quantidade processada por transação.
-
-    Exemplo:
-
-    ```bash
-    docker compose exec backend python -m scripts.index_property_embeddings --batch-size 100
-    ```
-
-    Para limitar a quantidade:
-
-    ```bash
-    docker compose exec backend python -m scripts.index_property_embeddings --limit 100 --batch-size 50
-    ```
-
-    Caso o processo seja interrompido, o mesmo comando pode ser executado novamente.
-
-    O script continuará somente com imóveis ainda sem embedding.
-
-    ### Resultado da indexação completa
-
-    A base foi indexada com:
-
-    ```text
-    Properties:             18.760
-    Property embeddings:    18.760
-    Cobertura:               100%
-    Pendentes:               0
-    Duplicidades:            0
-    Erros na indexação:      0
-    Dimensão:                384
-    ```
-
-    Modelo:
-
-    ```text
-    intfloat/multilingual-e5-small
-    ```
-
-    ---
-
-    ## Busca semântica
-
-    Endpoint:
-
-    ```text
-    GET /api/v1/properties/semantic-search
-    ```
-
-    Parâmetros:
-
-    ```text
-    q
-    limit
-    ```
-
-    `q` representa a consulta em linguagem natural.
-
-    `limit` define a quantidade máxima de resultados retornados.
-
-    Exemplo:
-
-    ```text
-    GET /api/v1/properties/semantic-search?q=apartamento com academia e churrasqueira&limit=5
-    ```
-
-    A resposta contém os dados do imóvel e:
-
-    ```text
-    similarity_score
-    ```
-
-    Exemplo simplificado:
-
-    ```json
-    [
-      {
-        "id": 4435,
-        "external_id": "...",
-        "title": "...",
-        "neighborhood": "Pinheirinho",
-        "usable_area": 0,
-        "bedrooms": 0,
-        "bathrooms": 0,
-        "parking_spaces": 0,
-        "price": 0,
-        "similarity_score": 0.8866
-      }
-    ]
-    ```
-
-    Os valores do exemplo são apenas ilustrativos, com exceção do identificador, bairro e score registrados durante a validação.
-
-    ---
-
-    ## Validação da busca semântica
-
-    A busca foi validada inicialmente com uma amostra reduzida e posteriormente contra os:
-
-    ```text
-    18.760 embeddings
-    ```
-
-    ### Academia e churrasqueira
-
-    Consulta:
-
-    ```text
-    apartamento com academia e churrasqueira
-    ```
-
-    Exemplos encontrados entre os primeiros resultados:
-
-    ```text
-    ID 4435 — Pinheirinho
-    similarity_score: 0.8866
-    academia + churrasqueira
-
-    ID 1474 — São Lourenço
-    similarity_score: 0.8838
-    churrasqueira + gourmet
-
-    ID 5062 — Atuba
-    similarity_score: 0.8810
-    academia + gourmet
-
-    ID 3115 — Cabral
-    similarity_score: 0.8800
-    academia + churrasqueira
-
-    ID 5585 — Pinheirinho
-    similarity_score: 0.8799
-    churrasqueira
-    ```
-
-    ### Transporte público
-
-    Também foi validada a consulta:
-
-    ```text
-    apartamento próximo a transporte público
-    ```
-
-    A relevância pode ser encontrada tanto na descrição quanto nos POIs incorporados ao documento utilizado para gerar o embedding.
-
-    ### Família e área de lazer
-
-    Consulta validada:
-
-    ```text
-    apartamento para família com 3 quartos e área de lazer
-    ```
-
-    ### Piscina e academia
-
-    Consulta validada:
-
-    ```text
-    apartamento com piscina e academia
-    ```
-
-    O endpoint retornou os resultados esperados contra a base completa.
-
-    ---
-
-    ## Busca semântica e filtros determinísticos
-
-    A validação da Missão 05 demonstrou uma separação arquitetural importante.
-
-    Características objetivas são melhores candidatas a filtros estruturados:
-
-    ```text
-    bairro
-    preço máximo
-    preço mínimo
-    quantidade de quartos
-    quantidade de banheiros
-    quantidade de vagas
-    área mínima
-    ```
-
-    Preferências ou intenções podem utilizar busca semântica:
-
-    ```text
-    bom para família
-    perto de transporte
-    boa área de lazer
-    apartamento confortável
-    condomínio com estrutura
-    próximo a comércio
-    ```
-
-    A Missão 06 passou a combinar essas estratégias por meio da busca híbrida:
-
-    ```text
-    Consulta do usuário
-            │
-            ▼
-    Interpretação da intenção
-            │
-            ├───────────────┐
-            ▼               ▼
-    Filtros estruturados   Busca semântica
-            │               │
-            └───────┬───────┘
-                    ▼
-               Ranking final
-    ```
-
-    Essa abordagem foi implementada na Missão 06 por meio do endpoint de busca híbrida, preservando filtros determinísticos e utilizando similaridade vetorial para o ranking final.
-
-    ---
-
-    ## Testes automatizados
-
-    Os testes do backend são executados com:
-
-    ```bash
-    docker compose exec backend python -m pytest -v
-    ```
-
-    A suíte cobre:
-
-    ```text
-    conexão com PostgreSQL
-    gerenciamento de sessão
-    pgvector
-    healthcheck
-    informações da aplicação
-    tratamento de erros
-    validação de schemas
-    consulta estruturada de imóveis
-    PropertyRepository
-    PropertyService
-    EmbeddingService
-    PropertyDocumentService
-    PropertyEmbeddingRepository
-    busca vetorial real
-    PropertySemanticSearchService
-    endpoint de busca semântica
-    busca híbrida
-    PropertyHybridSearchService
-    endpoint de busca híbrida
-    interpretação estruturada da intenção do lead
-    PropertySearchIntentService
-    PropertyNaturalLanguageSearchService
-    endpoint de busca em linguagem natural
-    ```
-
-    ### Testes adicionados nas Missões 05 a 09
-
-    ```text
-    test_embedding_service.py
-    test_property_document_service.py
-    test_property_embedding_repository.py
-    test_property_embedding_search.py
-    test_property_semantic_search_api.py
-    test_property_semantic_search_service.py
-    test_property_hybrid_search_repository.py
-    test_property_hybrid_search_service.py
-    test_property_hybrid_search_api.py
-    test_property_search_intent.py
-    test_property_search_intent_service.py
-    test_property_natural_language_search_service.py
-    test_property_natural_language_search_api.py
-    ```
-
-    O teste específico da API semântica valida:
-
-    ```text
-    q obrigatório
-    tamanho mínimo da consulta
-    HTTP 200 em consulta válida
-    estrutura da resposta
-    similarity_score
-    limit
-    limite máximo permitido
-    ```
-
-    Após a conclusão da Missão 09, a suíte completa possui:
-
-    ```text
-    104 testes
-    ```
-
-    A regressão final da missão deve permanecer integralmente verde antes do fechamento do commit.
-
-    Avisos de depreciação de dependências podem aparecer durante a execução do Pytest e são tratados como dívida técnica, não como falha funcional da missão.
-
-    ---
-
-    ## Stack
-
-    Tecnologias utilizadas atualmente:
-
-    - Python 3.12
-    - FastAPI
-    - SQLAlchemy 2.x
-    - psycopg 3
-    - Alembic
-    - Pydantic
-    - React
-    - Next.js
-    - PostgreSQL
-    - pgvector
-    - pandas
-    - sentence-transformers
-    - PyTorch
-    - Docker
-    - Docker Compose
-    - Pytest
-
-    Modelo de embeddings:
-
-    ```text
-    intfloat/multilingual-e5-small
-    ```
-
-    Tecnologias planejadas para evolução do projeto:
-
-    - LangGraph
-    - llama.cpp
-    - Modelo local Qwen ou Gemma
-    - RAG
-    - Evolution API
-
-    ---
-
-    ## Estrutura do projeto
-
-    ```text
-    fiap-sdr-imobiliario/
-    ├── backend/
-    │   ├── alembic/
-    │   │   └── versions/
-    │   │       ├── 64bbb5ca46ba_...
-    │   │       ├── 88433f05b0e8_create_properties_table.py
-    │   │       ├── ba7235f16efa_add_property_external_id.py
-    │   │       ├── 76bc84d41477_make_property_external_id_required.py
-    │   │       ├── 07605d3cb9a0_create_property_embeddings_table.py
-    │   │       ├── 44ec7dde886e_create_leads.py
-    │   │       ├── 992b26e7d391_create_conversations.py
-    │   │       └── c5a6d252b998_create_messages.py
-    │   │
-    │   ├── app/
-    │   │   ├── agents/
-    │   │   │
-    │   │   ├── api/
-    │   │   │   ├── router.py
-    │   │   │   └── routes/
-    │   │   │       ├── health.py
-    │   │   │       ├── info.py
-    │   │   │       ├── properties.py
-    │   │   │       └── conversations.py
-    │   │   │
-    │   │   ├── core/
-    │   │   │   ├── config.py
-    │   │   │   ├── exceptions.py
-    │   │   │   └── handlers/
-    │   │   │       ├── application_exception.py
-    │   │   │       ├── http_exception.py
-    │   │   │       └── validation_exception.py
-    │   │   │
-    │   │   ├── database/
-    │   │   │   ├── base.py
-    │   │   │   ├── session.py
-    │   │   │   ├── property_repository.py
-    │   │   │   ├── property_embedding_repository.py
-    │   │   │   ├── lead_repository.py
-    │   │   │   ├── conversation_repository.py
-    │   │   │   └── message_repository.py
-    │   │   │
-    │   │   ├── integrations/
-    │   │   │
-    │   │   ├── models/
-    │   │   │   ├── property.py
-    │   │   │   ├── property_embedding.py
-    │   │   │   ├── lead.py
-    │   │   │   ├── conversation.py
-    │   │   │   └── message.py
-    │   │   │
-    │   │   ├── rag/
-    │   │   │
-    │   │   ├── schemas/
-    │   │   │   ├── error.py
-    │   │   │   ├── health.py
-    │   │   │   ├── info.py
-    │   │   │   ├── property.py
-    │   │   │   ├── property_search_intent.py
-    │   │   │   └── conversation.py
-    │   │   │
-    │   │   ├── services/
-    │   │   │   ├── embedding_service.py
-    │   │   │   ├── property_document_service.py
-    │   │   │   ├── property_semantic_search_service.py
-    │   │   │   ├── property_hybrid_search_service.py
-    │   │   │   ├── property_search_intent_service.py
-    │   │   │   ├── property_natural_language_search_service.py
-    │   │   │   ├── conversation_service.py
-    │   │   │   ├── conversation_qualification_service.py
-    │   │   │   ├── conversation_property_search_service.py
-    │   │   │   ├── conversation_persistence_service.py
-    │   │   │   ├── lead_identification_service.py
-    │   │   │   └── property_service.py
-    │   │   │
-    │   │   └── tools/
-    │   │
-    │   ├── scripts/
-    │   │   ├── __init__.py
-    │   │   ├── import_curitiba_properties.py
-    │   │   └── index_property_embeddings.py
-    │   │
-    │   ├── tests/
-    │   │   ├── test_database_connection.py
-    │   │   ├── test_database_session.py
-    │   │   ├── test_embedding_service.py
-    │   │   ├── test_error_handler.py
-    │   │   ├── test_error_schema.py
-    │   │   ├── test_health.py
-    │   │   ├── test_info.py
-    │   │   ├── test_pgvector.py
-    │   │   ├── test_properties_api.py
-    │   │   ├── test_property_document_service.py
-    │   │   ├── test_property_embedding_repository.py
-    │   │   ├── test_property_embedding_search.py
-    │   │   ├── test_property_repository.py
-    │   │   ├── test_property_semantic_search_api.py
-    │   │   ├── test_property_semantic_search_service.py
-    │   │   ├── test_property_hybrid_search_repository.py
-    │   │   ├── test_property_hybrid_search_service.py
-    │   │   ├── test_property_hybrid_search_api.py
-    │   │   ├── test_property_search_intent.py
-    │   │   ├── test_property_search_intent_service.py
-    │   │   ├── test_property_natural_language_search_service.py
-    │   │   ├── test_property_natural_language_search_api.py
-    │   │   ├── test_conversation_state.py
-    │   │   ├── test_conversation_service.py
-    │   │   ├── test_conversation_flow.py
-    │   │   ├── test_conversation_qualification_service.py
-    │   │   ├── test_conversation_turn.py
-    │   │   ├── test_conversation_property_search_service.py
-    │   │   ├── test_conversation_search_flow.py
-    │   │   ├── test_conversation_api.py
-    │   │   ├── test_lead_model.py
-    │   │   ├── test_conversation_model.py
-    │   │   ├── test_message_model.py
-    │   │   ├── test_lead_repository.py
-    │   │   ├── test_conversation_repository.py
-    │   │   ├── test_message_repository.py
-    │   │   ├── test_conversation_persistence_service.py
-    │   │   ├── test_conversation_persistence_api.py
-    │   │   ├── test_lead_identification_service.py
-    │   │   ├── test_property_service.py
-    │   │   └── test_validation_handler.py
-    │   │
-    │   ├── alembic.ini
-    │   ├── Dockerfile
-    │   └── requirements.txt
-    │
-    ├── frontend/
-    │   ├── app/
-    │   ├── public/
-    │   ├── Dockerfile
-    │   └── package.json
-    │
-    ├── data/
-    │   ├── knowledge/
-    │   ├── processed/
-    │   └── raw/
-    │       └── curitiba_apartment_real_estate_data.csv
-    │
-    ├── docs/
-    │   ├── ARCHITECTURE.md
-    │   ├── CONVENTIONS.md
-    │   └── REQUIREMENTS.md
-    │
-    ├── scripts/
-    │   └── postgres/
-    │       └── init.sql
-    │
-    ├── skills/
-    ├── .env.example
-    ├── .gitignore
-    ├── AGENTS.md
-    ├── compose.yaml
-    └── README.md
-    ```
-
-    ---
-
-    ## Como executar o projeto
-
-    ### Pré-requisitos
-
-    Para executar o projeto é necessário possuir:
-
-    - Git
-    - Docker
-    - Docker Compose
-
-    Não é necessário instalar Python, PostgreSQL ou Node.js localmente para executar a aplicação através do Docker.
-
-    ---
-
-    ### 1. Clonar o repositório
-
-    ```bash
-    git clone <URL_DO_REPOSITORIO>
-    cd fiap-sdr-imobiliario
-    ```
-
-    ---
-
-    ### 2. Criar o arquivo de configuração
-
-    O projeto disponibiliza:
-
-    ```text
-    .env.example
-    ```
-
-    Crie uma cópia chamada:
-
-    ```text
-    .env
-    ```
-
-    No Windows PowerShell:
-
-    ```powershell
-    Copy-Item .env.example .env
-    ```
-
-    Linux/macOS:
-
-    ```bash
-    cp .env.example .env
-    ```
-
-    O arquivo `.env` não deve ser versionado.
-
-    ---
-
-    ### 3. Subir os containers
-
-    ```bash
-    docker compose up --build
-    ```
-
-    Ou em segundo plano:
-
-    ```bash
-    docker compose up --build -d
-    ```
-
-    ---
-
-    ### 4. Verificar os containers
-
-    ```bash
-    docker compose ps
-    ```
-
-    ---
-
-    ### LLM local para demonstração
-
-    No MVP do Hackathon, o frontend e o backend executam em Docker, enquanto o
-    servidor do modelo executa diretamente no host Windows:
-
-    ```text
-    Frontend Docker
-        ↓
-    Backend Docker
-        ↓
-    host.docker.internal:8080
-        ↓
-    llama-server no Windows
-    ```
-
-    O backend usa a API OpenAI-compatible de Chat Completions e envia requisições
-    para `POST {LLM_BASE_URL}/v1/chat/completions`. A implementação de referência
-    é o `llama-server` do llama.cpp, executado como serviço independente.
-
-    O modelo não faz parte do repositório. Arquivos `.gguf` não devem ser
-    versionados. O valor de `LLM_MODEL` deve corresponder ao nome ou alias exposto
-    pelo servidor.
-
-    Para o ambiente de demonstração validado no Windows, inicie o servidor com:
-
-    ```powershell
-    llama-server `
-      -hf ggml-org/Qwen3-4B-GGUF:Q4_K_M `
-      --alias local-model `
-      --host 0.0.0.0 `
-      --port 8080 `
-      --ctx-size 4096 `
-      --reasoning off
-    ```
-
-    O uso de `--reasoning off` é recomendado na demonstração porque reduz a
-    latência e ajuda a manter a resposta dentro do `LLM_TIMEOUT` configurado. O
-    tempo efetivo depende do hardware utilizado.
-
-    A URL depende de onde o backend está sendo executado:
-
-    ```text
-    Backend diretamente no Windows:
-    LLM_BASE_URL=http://localhost:8080
-
-    Backend pelo Docker Compose:
-    LLM_BASE_URL=http://host.docker.internal:8080
-    ```
-
-    No Docker Desktop para Windows, `host.docker.internal` resolve o host
-    automaticamente; não é necessário adicionar `extra_hosts`. As variáveis
-    `LLM_BASE_URL`, `LLM_MODEL` e `LLM_TIMEOUT` são repassadas pelo Compose e
-    permanecem configuráveis no arquivo `.env`.
-
-    #### Smoke test manual
-
-    1. Com o servidor iniciado no Windows, confirme a API OpenAI-compatible:
-
-       ```powershell
-       $body = @{
-           model = "local-model"
-           messages = @(
-               @{ role = "user"; content = "Responda apenas OK." }
-           )
-       } | ConvertTo-Json -Depth 4
-
-       Invoke-RestMethod `
-           -Method Post `
-           -Uri "http://localhost:8080/v1/chat/completions" `
-           -ContentType "application/json" `
-           -Body $body
-       ```
-
-       Substitua `local-model` pelo mesmo nome ou alias configurado em
-       `LLM_MODEL`.
-
-    2. Confirme a conectividade a partir do container backend:
-
-       ```bash
-       docker compose exec -T backend python -c "import os,httpx; url=os.environ['LLM_BASE_URL'].rstrip('/') + '/v1/chat/completions'; payload={'model':os.environ['LLM_MODEL'],'messages':[{'role':'user','content':'Responda apenas OK.'}]}; print(httpx.post(url,json=payload,timeout=float(os.environ['LLM_TIMEOUT'])).json())"
-       ```
-
-    3. Envie um turno pela aplicação:
-
-       ```powershell
-       $turn = @{
-           conversation_id = "smoke-llm-001"
-           message = "Quero comprar um apartamento no Boa Vista"
-           limit = 5
-       } | ConvertTo-Json
-
-       Invoke-RestMethod `
-           -Method Post `
-           -Uri "http://localhost:8000/api/v1/conversations/turn" `
-           -ContentType "application/json" `
-           -Body $turn
-       ```
-
-    Com o LLM ativo, o campo `response` deve conter a resposta contextual gerada.
-    Com o servidor indisponível, a mesma chamada continua retornando HTTP 200 com
-    fallback determinístico. `properties` continua vindo exclusivamente da busca
-    controlada, e o fallback não fabrica imóveis.
-
-    #### Checklist de demonstração
-
-    1. Confirme que o Docker Desktop está ativo.
-    2. Construa e inicie o ambiente completo:
-
-       ```bash
-       docker compose up --build -d
-       ```
-
-    3. Confirme os serviços:
-
-       ```bash
-       docker compose ps
-       ```
-
-    4. Confirme o backend em `http://localhost:8000/api/v1/health`.
-    5. Inicie o `llama-server` com o comando validado acima.
-    6. Confirme que o alias servido é `local-model`.
-    7. Abra o frontend em `http://localhost:3000`.
-    8. Atualize a página antes de iniciar, para gerar uma conversa limpa.
-    9. Não atualize a página durante o roteiro: o frontend ainda não reidrata
-       visualmente uma conversa após o refresh.
-    10. Envie, na ordem, exatamente as quatro mensagens do roteiro validado abaixo.
-
-    #### Roteiro E2E validado
-
-    1. `Olá, meu nome é Rafael e estou procurando um apartamento para comprar.`
-
-       Resultado esperado: nome `Rafael`, intenção `COMPRA`, score `20 / FRIO`,
-       conversa ainda não qualificada e solicitação da região.
-
-    2. `Preciso em 30 dias. Procuro no Boa Vista`
-
-       Resultado esperado: região `Boa Vista`, urgência de 30 dias, score
-       `55 / MORNO`, sem busca de imóveis e solicitação do orçamento. Como a
-       busca ainda não ocorreu, o agente não deve afirmar ausência de resultados.
-
-    3. `Meu orçamento é até 400 mil`
-
-       Resultado esperado: orçamento máximo `400000`, score `75 / QUENTE`,
-       conversa ainda não qualificada e solicitação da quantidade de quartos.
-
-    4. `Quero pelo menos 3 quartos`
-
-       Resultado esperado: mínimo de 3 quartos, score `75 / QUENTE`,
-       `qualified=true`, busca executada e cinco imóveis compatíveis exibidos.
-
-    A progressão demonstrada é:
-
-    ```text
-    20 / FRIO
-        ↓
-    55 / MORNO
-        ↓
-    75 / QUENTE
-        ↓
-    qualified=true + imóveis
-    ```
-
-    Na validação realizada, um dos cards exibiu um apartamento no Boa Vista por
-    `R$ 279.990`, com 3 quartos, 1 banheiro, 73 m² e 1 vaga. Se o LLM ficar
-    indisponível ou exceder o timeout, o fallback determinístico preserva o fluxo
-    e os imóveis reais recuperados pela busca controlada.
-
-    ---
-
-    ### 5. Executar as migrations
-
-    ```bash
-    docker compose exec backend alembic upgrade head
-    ```
-
-    Para verificar a migration atual:
-
-    ```bash
-    docker compose exec backend alembic current
-    ```
-
-    ---
-
-    ### 6. Importar os imóveis
-
-    A base pode ser importada através do script de importação do backend.
-
-    ```bash
-    docker compose exec backend python -m scripts.import_curitiba_properties
-    ```
-
-    A importação utiliza identificadores externos determinísticos para evitar duplicações.
-
-    ---
-
-    ### 7. Gerar os embeddings
-
-    Para indexar todos os imóveis ainda não indexados:
-
-    ```bash
-    docker compose exec backend python -m scripts.index_property_embeddings --batch-size 100
-    ```
-
-    Para executar uma amostra:
-
-    ```bash
-    docker compose exec backend python -m scripts.index_property_embeddings --limit 100 --batch-size 50
-    ```
-
-    ---
-
-    ### 8. Validar o backend
-
-    Healthcheck:
-
-    ```text
-    GET /api/v1/health
-    ```
-
-    Swagger:
-
-    ```text
-    /docs
-    ```
-
-    Informações da aplicação:
-
-    ```text
-    GET /api/v1/info
-    ```
-
-    Consulta estruturada:
-
-    ```text
-    GET /api/v1/properties
-    ```
-
-    Busca semântica:
-
-    ```text
-    GET /api/v1/properties/semantic-search
-    ```
-
-    Busca híbrida:
-
-    ```text
-    GET /api/v1/properties/hybrid-search
-    ```
-
-    ---
-
-    ### 9. Executar os testes
-
-    ```bash
-    docker compose exec backend python -m pytest -v
-    ```
-
-    ---
-
-    ## Arquitetura atual
-
-    ```text
-                             ┌───────────────────┐
-                             │     Frontend      │
-                             │      Next.js      │
-                             └─────────┬─────────┘
-                                       │
-                                       ▼
-                             ┌───────────────────┐
-                             │      FastAPI      │
-                             │    /api/v1/*      │
-                             └─────────┬─────────┘
-                                       │
-                  ┌────────────────────┼────────────────────┐
-                  │                    │                    │
-                  ▼                    ▼                    ▼
-           Busca estruturada     Busca híbrida       Linguagem natural
-           PropertyService    HybridSearchService    IntentService
-                  │                    │                    │
-                  │                    │                    ▼
-                  │                    │       PropertySearchIntent
-                  │                    │                    │
-                  │                    │                    ▼
-                  │                    │     NaturalLanguageSearchService
-                  │                    │                    │
-                  │                    ◄────────────────────┘
-                  │                    │
-                  ▼                    ▼
-         PropertyRepository    EmbeddingService
-                                       │
-                                       ▼
-                           PropertyEmbeddingRepository
-                                       │
-                             ┌─────────┴─────────┐
-                             ▼                   ▼
-                        filtros SQL      similaridade vetorial
-                             │                   │
-                             └─────────┬─────────┘
-                                       ▼
-                             PostgreSQL + pgvector
-    ```
-
----
-
-### Missão 11 — Agente SDR e Orquestração com LangGraph
-
-**Status: Concluída**
-
-A Missão 11 adiciona a camada de orquestração do agente SDR utilizando **LangGraph**, evoluindo o fluxo conversacional determinístico implementado nas missões anteriores para uma arquitetura baseada em grafo.
-
-O agente reutiliza os serviços já existentes de interpretação da intenção, qualificação conversacional, persistência e busca de imóveis. O LangGraph é responsável pela coordenação do fluxo e não acessa diretamente o banco de dados.
-
-A versão utilizada durante a implementação foi:
-
-```text
-LangGraph 1.2.11
+# Agente SDR Imobiliário com IA
+
+POC desenvolvida para o Hackathon da Pós-Graduação FIAP — IA para Devs. O sistema representa um atendimento comercial imobiliário assistido por IA: conversa com o lead, mantém contexto, qualifica a oportunidade, calcula um score determinístico, consulta imóveis reais, conduz seleção e agendamento, gera handoff para o corretor e permite acompanhamento por dashboard.
+
+Esta é uma POC acadêmica, não um CRM ou uma plataforma imobiliária de produção.
+
+## Funcionalidades implementadas
+
+- Chat web persistente com histórico e polling incremental.
+- Orquestração conversacional com LangGraph.
+- Identificação do lead, intenção comercial e preferências.
+- Qualificação progressiva e Lead Score determinístico (`FRIO`, `MORNO`, `QUENTE`).
+- Busca estruturada, semântica e híbrida de imóveis persistidos.
+- Seleção de imóvel, agendamento de visita ou reunião e handoff estruturado.
+- Dashboard somente leitura com lista e detalhe dos leads.
+- Follow-up automático pelo canal interno `WEB`, processado por worker separado.
+- LLM local externo compatível com a API OpenAI e fallback determinístico.
+- PostgreSQL, pgvector, migrations Alembic e importação reproduzível do dataset.
+- Observabilidade básica com request ID e logs estruturados seguros.
+
+## Tecnologias
+
+| Área | Tecnologias |
+|---|---|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Vitest |
+| Backend | Python 3.12, FastAPI, SQLAlchemy, Alembic, Pytest |
+| IA | LangGraph, llama.cpp/llama-server opcional, sentence-transformers |
+| Dados | PostgreSQL 16, pgvector |
+| Infraestrutura | Docker e Docker Compose |
+
+## Arquitetura resumida
+
+```mermaid
+flowchart LR
+    U[Lead] --> C[Chat Next.js]
+    B[Corretor] --> D[Dashboard Next.js]
+    C -->|HTTP e polling| API[FastAPI]
+    D --> API
+    API --> G[LangGraph]
+    G --> S[Services]
+    API --> S
+    S --> R[Repositories]
+    R --> DB[(PostgreSQL + pgvector)]
+    G -. opcional .-> L[llama-server externo]
+    W[Follow-up worker] --> S
+    W --> DB
 ```
 
-#### Fluxo do agente SDR
+As rotas HTTP coordenam casos de uso por services, e repositories concentram o acesso ao banco. Regras comerciais críticas, como Lead Score, validações, estados e persistência, não são delegadas ao LLM. Consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para detalhes e [docs/TRACEABILITY.md](docs/TRACEABILITY.md) para a relação entre requisitos, código e testes.
 
-```text
-POST /api/v1/conversations/turn
-              │
-              ▼
-       SDRAgentService
-              │
-              ▼
-          LangGraph
-              │
-              ▼
-       process_message
-              │
-              ▼
-    qualify_conversation
-              │
-        ┌─────┴─────┐
-        │           │
-        ▼           ▼
- não qualificado  qualificado
-        │           │
-        ▼           ▼
-  ask_question   search_properties
-        │           │
-        └─────┬─────┘
-              ▼
-             END
+## Pré-requisitos
+
+- Git.
+- Docker Desktop com Docker Compose v2.
+- Rede, espaço em disco e tempo adicional no primeiro uso do modelo de embeddings em cada ambiente ou container que ainda não possua cache.
+- Opcional: `llama-server` executando no host para respostas geradas por LLM.
+
+Os comandos abaixo partem da raiz do repositório. Portas e credenciais locais de desenvolvimento vêm do arquivo `.env` e podem ser ajustadas antes da inicialização.
+
+## Configuração do ambiente
+
+### Linux/macOS
+
+```bash
+git clone <URL_DO_REPOSITORIO>
+cd fiap-sdr-imobiliario
+cp .env.example .env
 ```
 
-Quando a conversa ainda não possui os critérios mínimos necessários, o grafo direciona o fluxo para `ask_question`, que utiliza a qualificação existente para determinar a próxima pergunta.
+### Windows PowerShell
 
-Quando a conversa está qualificada, o fluxo segue para `search_properties`, que utiliza o `ConversationPropertySearchService` para acessar a camada de busca híbrida.
-
-#### Estado do agente
-
-O estado compartilhado entre os nodes é representado por `AgentState`.
-
-Arquivo:
-
-```text
-backend/app/agents/state.py
+```powershell
+git clone <URL_DO_REPOSITORIO>
+Set-Location fiap-sdr-imobiliario
+Copy-Item .env.example .env
 ```
 
-O estado pode transportar informações como:
+O `.env.example` contém apenas valores locais de desenvolvimento. Não versione o `.env` nem substitua seus valores por credenciais reais no repositório.
 
-```text
-conversation_id
-message
-conversation_state
-qualification
-properties
-response
-error
+## Inicialização segura com Docker Compose
+
+O worker consulta tabelas da aplicação. Em um clone limpo, aplique as migrations antes de subir o conjunto completo:
+
+```bash
+# 1. Inicie somente o PostgreSQL
+docker compose up -d postgres
+
+# 2. Confirme que o PostgreSQL já aceita conexões
+docker compose exec postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+
+# 3. Aplique o schema
+docker compose run --rm backend alembic upgrade head
+
+# 4. Importe os imóveis
+docker compose run --rm backend python -m scripts.import_curitiba_properties
+
+# 5. Gere os embeddings
+docker compose run --rm backend python -m scripts.index_property_embeddings --batch-size 100
+
+# 6. Suba backend, worker e frontend
+docker compose up --build -d
+
+# 7. Verifique os serviços
+docker compose ps
 ```
 
-O `ConversationState` existente continua sendo utilizado para armazenar os critérios acumulados durante os múltiplos turnos da conversa.
+Só prossiga para o Alembic quando `pg_isready` informar que o servidor está aceitando conexões; se ainda não estiver, aguarde e execute a verificação novamente.
 
-#### Nodes
+O modelo `intfloat/multilingual-e5-small` não está incorporado à imagem Docker, e o Compose atual não configura um volume compartilhado para o cache do Hugging Face. Assim, o container efêmero usado na indexação pode baixar o modelo, e o backend pode precisar baixá-lo novamente em seu próprio container quando realizar a primeira busca que utilize embeddings. Cada primeiro uso sem cache disponível pode exigir rede, espaço em disco e tempo adicional. O comportamento exato depende do cache presente em cada ambiente ou container.
 
-Os nodes do agente estão implementados em:
+Execuções posteriores do indexador processam apenas imóveis disponíveis que ainda não possuem embedding, embora a inicialização do modelo continue sujeita ao cache disponível naquele container.
 
-```text
-backend/app/agents/nodes.py
+Depois da preparação inicial, o comando usual é:
+
+```bash
+docker compose up --build -d
 ```
 
-Nodes implementados:
+## Migrations
 
-```text
-process_message_node
-qualify_conversation_node
-ask_question_node
-search_properties_node
+```bash
+docker compose run --rm backend alembic heads
+docker compose run --rm backend alembic current
+docker compose run --rm backend alembic upgrade head
 ```
 
-Cada node possui uma responsabilidade específica.
+O projeto deve possuir um único head. Não altere o schema manualmente: Alembic é o mecanismo oficial de evolução do banco.
 
-O node `process_message_node` atualiza o estado da conversa utilizando as regras já existentes no `ConversationService`.
+## Importação de imóveis
 
-O node `qualify_conversation_node` utiliza o `ConversationQualificationService` para verificar se existem informações suficientes para iniciar a busca.
+O arquivo versionado é `data/raw/curitiba_apartment_real_estate_data.csv`. A importação lê, limpa, normaliza, valida e persiste os registros no PostgreSQL:
 
-O node `ask_question_node` retorna a próxima pergunta quando a conversa ainda não está qualificada.
-
-O node `search_properties_node` utiliza o `ConversationPropertySearchService` recebido por injeção de dependência.
-
-Essa separação mantém o grafo desacoplado da camada de persistência e impede acesso direto ao PostgreSQL pelos nodes.
-
-#### Roteamento condicional
-
-O roteamento está implementado em:
-
-```text
-backend/app/agents/routing.py
+```bash
+docker compose run --rm backend python -m scripts.import_curitiba_properties
 ```
 
-Após a qualificação, o grafo decide entre dois caminhos:
+O script usa uma chave externa determinística e pode ser executado novamente sem criar duplicatas para os mesmos registros. Linhas inválidas são contabilizadas pelo processo.
 
-```text
-qualified = false
-        │
-        ▼
-ask_question
+## Geração de embeddings
 
-qualified = true
-        │
-        ▼
-search_properties
+```bash
+docker compose run --rm backend python -m scripts.index_property_embeddings --batch-size 100
 ```
 
-A decisão é realizada por:
+Opções disponíveis:
 
-```text
-route_after_qualification
+```bash
+docker compose run --rm backend python -m scripts.index_property_embeddings --help
 ```
 
-#### Grafo SDR
+Os documentos vetoriais são projeções dos próprios imóveis, não um acervo genérico de FAQs ou documentos fragmentados em chunks. A busca híbrida combina filtros estruturados e similaridade em pgvector.
 
-A construção do grafo está centralizada em:
+## LLM local e fallback determinístico
 
-```text
-backend/app/agents/sdr_graph.py
+O Compose não inicia um servidor de LLM. Quando desejado, execute no host um `llama-server` compatível com a API OpenAI e configure:
+
+```dotenv
+LLM_BASE_URL=http://host.docker.internal:8080
+LLM_MODEL=local-model
+LLM_TIMEOUT=30
 ```
 
-O fluxo implementado é:
+O alias em `LLM_MODEL` deve corresponder ao modelo exposto pelo servidor. Sem LLM, com timeout ou indisponibilidade, o atendimento continua pelo fallback determinístico. Qualificação, score, busca, seleção, agendamento e follow-up não dependem de o LLM estar disponível.
 
-```text
-START
-  │
-  ▼
-process_message
-  │
-  ▼
-qualify_conversation
-  │
-  ├── ask_question ────────> END
-  │
-  └── search_properties ──> END
+## Interfaces e endpoints
+
+Com os valores padrão de `.env.example`:
+
+| Recurso | URL |
+|---|---|
+| Chat | <http://localhost:3000/> |
+| Dashboard | <http://localhost:3000/dashboard> |
+| Swagger | <http://localhost:8000/docs> |
+| Health | <http://localhost:8000/api/v1/health> |
+| Informações da API | <http://localhost:8000/api/v1/info> |
+
+Endpoints principais:
+
+| Método e caminho | Finalidade |
+|---|---|
+| `POST /api/v1/conversations/turn` | Processa um turno conversacional |
+| `GET /api/v1/conversations/{conversation_id}/messages` | Histórico público e polling por `after_id` |
+| `GET /api/v1/properties` | Busca estruturada |
+| `GET /api/v1/properties/semantic-search` | Busca semântica |
+| `GET /api/v1/properties/hybrid-search` | Busca híbrida |
+| `POST /api/v1/properties/natural-language-search` | Interpreta busca em linguagem natural |
+| `POST /api/v1/appointments` | Cria agendamento a partir da conversa |
+| `GET /api/v1/appointments/{appointment_id}` | Consulta agendamento |
+| `GET /api/v1/handoffs/{conversation_id}` | Projeção de handoff para o corretor |
+| `GET /api/v1/dashboard/leads` | Lista leads no dashboard |
+| `GET /api/v1/dashboard/leads/{lead_id}` | Detalha um lead |
+| `POST /api/v1/follow-ups` | Agenda follow-up futuro |
+| `GET /api/v1/follow-ups/{follow_up_id}` | Consulta follow-up |
+| `POST /api/v1/follow-ups/{follow_up_id}/cancel` | Cancela follow-up pendente |
+| `POST /api/v1/follow-ups/{follow_up_id}/attempts` | Registra tentativa manual/integrada |
+
+### Dashboard
+
+O dashboard é uma projeção somente leitura. A lista mostra nome, status persistido, intenção, score, classificação e última interação. O detalhe reúne preferências, histórico público, imóveis apresentados, imóvel selecionado, agendamentos e handoff. Não há edição de leads nem seção de follow-up.
+
+### Follow-up automático WEB
+
+O serviço `follow-up-worker` executa um ciclo imediato e repete a verificação a cada 30 segundos. Follow-ups `PENDING` vencidos são adquiridos em lotes determinísticos com `FOR UPDATE SKIP LOCKED`. Para cada entrega bem-sucedida, uma única transação persiste:
+
+- uma `Message` com role `assistant` na conversa mais recente do lead;
+- uma tentativa `WEB/SUCCESS`;
+- o incremento de `attempt_count`;
+- o status `COMPLETED` e `completed_at`.
+
+O Chat consulta mensagens novas a cada 3 segundos, deduplica por ID e apresenta a mensagem automaticamente. `CANCELLED` e `COMPLETED` não são processados. Uma falha técnica causa rollback integral; o item permanece `PENDING` e pode ser reavaliado no ciclo seguinte.
+
+Registros `LeadFollowUpAttempt` podem ter status `SUCCESS` ou `FAILED`. No fluxo automático, o worker só cria a tentativa `WEB/SUCCESS` quando a entrega é concluída: mensagem, tentativa, incremento de `attempt_count` e transição para `COMPLETED` são confirmados atomicamente no mesmo commit. Se ocorrer uma falha técnica antes desse commit, toda a transação é revertida, nenhuma tentativa `FAILED` é criada automaticamente e o follow-up permanece elegível para nova avaliação em um ciclo posterior. Portanto, `FAILED` não representa automaticamente toda falha técnica do worker; esse status pode ser registrado pelos fluxos explícitos suportados pela API.
+
+`Lead.status` e `LeadFollowUp.status` têm significados distintos. `COMPLETED` indica apenas a conclusão daquele follow-up e não equivale a lead `ENCERRADO`. A máquina comercial `NOVO`/`EM_ATENDIMENTO`/`AGUARDANDO_RESPOSTA`/`FOLLOWUP_1`/`FOLLOWUP_2`/`ENCERRADO` não foi implementada. Não há entrega por WhatsApp ou e-mail.
+
+## Testes e validações
+
+Com o ambiente em execução:
+
+```bash
+# Backend
+docker compose exec backend python -m pytest -v
+
+# Frontend
+docker compose exec frontend npm run test:run
+docker compose exec frontend npm run lint
+docker compose run --rm frontend npm run build
 ```
 
-O grafo é compilado pelo LangGraph e executado a cada turno da conversa.
+Alternativamente, para desenvolvimento local, instale as dependências de cada diretório e execute:
 
-#### SDRAgentService
-
-A aplicação acessa o agente através de:
-
-```text
-backend/app/services/sdr_agent_service.py
+```bash
+cd backend
+python -m pytest -v
 ```
 
-O `SDRAgentService` funciona como uma fachada entre a API e o LangGraph.
-
-O endpoint não precisa conhecer a implementação interna do grafo. Ele envia o estado da conversa e a mensagem recebida para o serviço e recebe um `ConversationTurnResult`.
-
-A arquitetura passa a seguir:
-
-```text
-FastAPI
-   │
-   ▼
-SDRAgentService
-   │
-   ▼
-LangGraph
-   │
-   ├── ConversationService
-   ├── ConversationQualificationService
-   └── ConversationPropertySearchService
-              │
-              ▼
-     PropertyHybridSearchService
-              │
-              ▼
-      PostgreSQL + pgvector
+```bash
+cd frontend
+npm ci
+npm run test:run
+npm run lint
+npm run build
 ```
 
-#### Integração com a persistência da Missão 09
+Os testes de integração do backend requerem PostgreSQL compatível com o projeto.
 
-A implementação da Missão 11 preserva a persistência criada na Missão 09.
+## Observabilidade
 
-O endpoint:
+Toda resposta HTTP recebe `X-Request-ID`. Um UUID externo válido é canonicalizado; quando ausente ou inválido, a aplicação gera um UUID v4. O ID é propagado por `request.state` e `ContextVar` aos eventos internos da requisição.
 
-```text
-POST /api/v1/conversations/turn
+Os logs usam texto estruturado `key=value`, allowlist de campos e sanitização contra caracteres de controle. Eventos relevantes incluem:
+
+- `request_completed` e `request_failed`;
+- início e conclusão de turno conversacional;
+- conclusão de chamada ao LLM e ativação do fallback;
+- início, conclusão e falha da busca de imóveis;
+- ciclo, entrega, falha e encerramento do worker.
+
+Bodies, query strings, headers, prompts, conteúdo de mensagens, estado conversacional, embeddings, parâmetros SQL, traceback bruto e credenciais não são registrados pelos eventos da aplicação.
+
+```bash
+docker compose logs -f backend
+docker compose logs -f follow-up-worker
 ```
 
-continua responsável pela recuperação e persistência da conversa.
-
-O fluxo integrado é:
-
-```text
-Mensagem do lead
-      │
-      ▼
-ConversationPersistenceService
-      │
-      ├── recupera/cria Conversation
-      ├── recupera estado persistido
-      └── registra mensagem
-      │
-      ▼
-SDRAgentService
-      │
-      ▼
-LangGraph
-      │
-      ├── processa mensagem
-      ├── qualifica conversa
-      └── pergunta ou busca imóveis
-      │
-      ▼
-ConversationPersistenceService
-      │
-      └── atualiza estado
-      │
-      ▼
-Resposta da API
-```
-
-Com isso, o LangGraph passa a controlar a decisão conversacional sem substituir os repositories ou serviços responsáveis pela persistência.
-
-#### Preparação para integração com LLM
-
-A Missão 11 não adiciona geração de respostas por LLM.
-
-A arquitetura cria o ponto de integração necessário para que uma camada de modelo de linguagem possa ser adicionada posteriormente sem permitir acesso direto do modelo ao banco de dados.
-
-A evolução prevista mantém o fluxo:
-
-```text
-LangGraph
-    │
-    ├── Services / Tools
-    │       │
-    │       ▼
-    │   PostgreSQL + pgvector
-    │
-    └── LLMService
-            │
-            ▼
-        Modelo local
-```
-
-O princípio arquitetural permanece:
-
-```text
-LLM / LangGraph
-      │
-      ▼
-Services / Tools
-      │
-      ▼
-Repositories
-      │
-      ▼
-PostgreSQL
-```
-
-O modelo de linguagem não deve acessar diretamente o banco de dados.
-
-#### Testes da Missão 11
-
-Foram adicionados:
-
-```text
-test_agent_nodes.py
-test_agent_routing.py
-test_sdr_graph.py
-test_sdr_agent_service.py
-```
-
-Os novos testes cobrem:
-
-```text
-processamento da mensagem
-criação e atualização do AgentState
-qualificação da conversa
-geração da próxima pergunta
-injeção do serviço de busca
-roteamento condicional
-fluxo não qualificado
-fluxo qualificado
-execução completa do grafo
-conversa em múltiplos turnos
-SDRAgentService
-```
-
-A Missão 11 adicionou:
-
-```text
-14 novos testes
-```
-
-A validação conjunta da orquestração do agente com a persistência conversacional executou:
-
-```text
-19 testes
-19 passed
-```
-
-A regressão completa do backend ao final da implementação apresentou:
-
-```text
-118 testes
-118 passed
-```
-
-#### Definition of Done
-
-- [x] LangGraph integrado ao backend
-- [x] `AgentState` tipado
-- [x] Nodes do agente separados por responsabilidade
-- [x] Roteamento condicional implementado
-- [x] Grafo SDR criado
-- [x] `SDRAgentService` implementado
-- [x] Fluxo não qualificado direcionado para próxima pergunta
-- [x] Fluxo qualificado direcionado para busca de imóveis
-- [x] `ConversationPropertySearchService` reutilizado
-- [x] Acesso direto ao banco evitado dentro do grafo
-- [x] Persistência da Missão 09 preservada
-- [x] Conversas em múltiplos turnos preservadas
-- [x] Endpoint `/api/v1/conversations/turn` integrado ao agente
-- [x] Contrato HTTP existente preservado
-- [x] Ponto de integração preparado para futuro `LLMService`
-- [x] Testes dos nodes implementados
-- [x] Testes do roteamento implementados
-- [x] Testes do grafo implementados
-- [x] Testes do `SDRAgentService` implementados
-- [x] Testes integrados com persistência executados
-- [x] Regressão completa executada
-- [x] 118 testes automatizados passando
-
----
-
-### Missão 12 — Geração contextual de respostas com LLM
-
-**Status: Concluída**
-
-A resposta do agente passa a ser gerada pelo `LLMService` em um node comum do
-LangGraph:
-
-```text
-ask_question ────────┐
-                     ├──> generate_response -> END
-search_properties ───┘
-```
-
-A qualificação e a próxima pergunta continuam determinísticas. Para conversas
-qualificadas, a busca híbrida existente realiza o Retrieval e somente os imóveis
-recuperados são transformados em contexto controlado para a Generation. O LLM
-não recebe sessão, repositories, SQL, banco, embeddings ou funções de busca.
-
-O contexto inclui o `ConversationState`, a qualificação, no máximo os seis
-registros anteriores e os atributos permitidos dos imóveis recuperados. O
-histórico serve apenas para continuidade conversacional; `ConversationState` e
-`properties` permanecem as fontes factuais canônicas.
-
-Falhas de conexão, HTTP, timeout ou resposta inválida do LLM usam respostas
-determinísticas de fallback. A API preserva os campos anteriores, adiciona
-`response` e persiste toda resposta do assistente, inclusive fallbacks.
-
-Validação final da Missão 12:
-
-- [x] Regressão completa do backend executada
-- [x] 136 testes automatizados passando
-- [x] 185 warnings de depreciação identificados, sem falhas de teste
-
----
-
-### Missão 13 — Qualificação comercial e Lead Score determinístico
-
-**Status: Concluída**
-
-A qualificação comercial passa a identificar de forma determinística a intenção
-de `COMPRA`, `ALUGUEL` ou `INVESTIMENTO`, a urgência normalizada em dias e o
-aceite explícito de reunião ou visita. Essas informações são preservadas no
-`ConversationState` entre os turnos. Negações, perguntas meramente informativas
-e urgências menores que um dia não são tratadas como novas evidências.
-
-O `LeadScoreService` calcula a pontuação sem LLM, banco de dados ou efeitos
-colaterais:
-
-```text
-Intenção identificada       +20
-Orçamento informado         +20
-Região definida             +10
-Urgência até 30 dias        +25
-Urgência entre 31 e 90      +15
-Aceitou reunião/visita      +25
-```
-
-```text
-0  - 39  → FRIO
-40 - 69  → MORNO
-70 - 100 → QUENTE
-```
-
-O cálculo foi integrado ao LangGraph após o processamento da mensagem e antes
-da qualificação mínima para busca:
-
-```text
-START
-  ↓
-process_message
-  ↓
-calculate_lead_score
-  ↓
-qualify_conversation
-  ↓
-route_after_qualification
-  ├── ask_question
-  │      ↓
-  │   generate_response
-  │
-  └── search_properties
-         ↓
-      generate_response
-         ↓
-        END
-```
-
-O score não participa do routing nem determina a busca de imóveis. O LLM não
-calcula ou altera score e classificação, e `PropertySearchIntent` permanece
-separado de `commercial_intent`. Nenhuma migration foi necessária: score,
-classificação e qualificação comercial são persistidos em `conversation.state`.
-
-Validação final da Missão 13:
-
-- [x] Extração comercial determinística e incremental
-- [x] Negações, perguntas informativas e urgências inválidas tratadas
-- [x] `LeadScoreService` determinístico e sem efeitos colaterais
-- [x] `calculate_lead_score` integrado ao LangGraph
-- [x] Regressão completa executada no container backend
-- [x] 194 testes coletados e aprovados
-- [x] 0 falhas e 0 skips
-- [x] `git diff --check` aprovado
-
----
-
-### Missão 14 — Experiência integrada e ambiente demonstrável
-
-**Status: Concluída**
-
-A interface passou a consumir a resposta canônica do SDR, apresentar os imóveis
-recuperados e exibir o estado factual da qualificação, incluindo score e
-classificação. Os estados de carregamento, erro, recuperação e busca sem
-resultados foram protegidos sem duplicar regras de negócio no frontend.
-
-O ambiente de demonstração utiliza frontend, backend e PostgreSQL/pgvector no
-Docker Compose, com `llama-server` no host Windows. O fluxo E2E foi validado em
-quatro turnos, cobrindo memória, qualificação comercial, Lead Score, routing,
-busca híbrida, resposta contextual/fallback e apresentação de cinco imóveis.
-
-- [x] Contrato frontend/backend sincronizado
-- [x] Resposta do backend usada como fala canônica do agente
-- [x] Score, classificação e critérios visíveis no frontend
-- [x] Loading, erros, recuperação e zero resultados tratados
-- [x] LLM local OpenAI-compatible acessível pelo backend Docker
-- [x] Busca não executada diferenciada de busca sem resultados no contexto do LLM
-- [x] Roteiro E2E real validado pelo navegador
-
----
-
-    ## Próximas evoluções
-
-    Com a base imobiliária estruturada, a busca híbrida, a interpretação determinística da intenção e a persistência conversacional implementadas, o projeto está preparado para evoluir para as próximas etapas do agente SDR.
-
-    Entre as evoluções previstas estão:
-
-    - recuperação de contexto imobiliário;
-    - camada RAG;
-    - integração com modelo de linguagem local;
-    - orquestração do agente;
-    - integração com canais de atendimento;
-    - guardrails;
-    - observabilidade e avaliação das respostas.
-
-    ---
-
-    ## Objetivo arquitetural
-
-    A evolução esperada do projeto é:
-
-    ```text
-    Lead
-     │
-     ▼
-    Mensagem em linguagem natural
-     │
-     ▼
-    Interpretação da necessidade
-     │
-     ├───────────────┐
-     ▼               ▼
-    Filtros          Preferências semânticas
-    estruturados     / embedding
-     │               │
-     └───────┬───────┘
-             ▼
-    Busca híbrida
-    PostgreSQL + pgvector
-             │
-             ▼
-    Imóveis candidatos
-             │
-             ▼
-    RAG / contexto
-             │
-             ▼
-    LLM / Agente SDR
-             │
-             ▼
-    Resposta ao lead
-    ```
-
-    As Missões 05, 06 e 07 estabelecem a camada de recuperação e interpretação inicial do agente. A Missão 05 adiciona a representação vetorial e a busca por significado; a Missão 06 combina similaridade com filtros estruturados; e a Missão 07 permite que uma mensagem natural do lead seja convertida automaticamente em uma intenção tipada e encaminhada à busca híbrida.
-
-    A interpretação da Missão 07 é atualmente determinística, baseada em regras e expressões regulares. A arquitetura mantém essa responsabilidade desacoplada para permitir futura integração com um LLM sem alterar a camada de recuperação de imóveis.
-
-    A Missão 08 acrescenta a camada de estado e decisão conversacional: os critérios podem ser coletados em vários turnos, a aplicação identifica o que ainda falta e somente aciona a recuperação imobiliária quando existe informação mínima suficiente para a busca.
-
-    A Missão 09 acrescenta persistência ao fluxo: Lead, Conversation, Message e o estado acumulado passam a ser armazenados no PostgreSQL. A aplicação recupera a conversa por `conversation_id`, mantém o mesmo Lead associado ao longo dos turnos e preserva o histórico de mensagens sem depender do estado reenviado pelo cliente.
-
----
-
-### Missão 15 — Seleção de imóvel e agendamento
-
-**Status: Concluída**
-
-O usuário seleciona explicitamente um imóvel apresentado usando sua chave
-`property.id`. O backend preserva no `ConversationState` a lista mais recente
-de `presented_property_ids` e aceita `selected_property_id` somente quando o ID
-pertence a essa lista, sem decisão do LLM.
-
-Após a seleção, um fluxo determinístico coleta tipo, data, horário e confirmação.
-Uma visita confirmada pode ser persistida por `POST /api/v1/appointments`; o
-registro pode ser consultado por `GET /api/v1/appointments/{appointment_id}`.
-Data e horário são interpretados em `America/Sao_Paulo` e persistidos em UTC.
-Uma chave única e determinística torna a criação idempotente mesmo em retries.
-
-`accepted_meeting_or_visit` somente passa a `true` depois que o Appointment é
-persistido. Nesse momento o `LeadScoreService` recalcula score e classificação;
-uma frase textual ou a simples seleção do imóvel não concede os 25 pontos.
-
-O frontend guarda `conversation_id` em `sessionStorage`, evitando uma nova
-identidade após refresh na mesma aba. Mensagens, painel e cards ainda não são
-reidratados visualmente porque não existe endpoint de recuperação completa da UI.
+Não há Prometheus, Grafana, Sentry, OpenTelemetry ou tracing distribuído nesta POC.
+
+## Roteiro de demonstração
+
+Pré-condições: migrations aplicadas, imóveis importados, embeddings gerados e todos os serviços saudáveis. O LLM local é opcional.
+
+1. Abra o Chat e envie uma mensagem com nome e intenção de compra ou aluguel.
+2. Responda às perguntas de região, orçamento e quartos; observe qualificação e Lead Score.
+3. Solicite imóveis e confirme que os cards correspondem a registros persistidos.
+4. Selecione um imóvel e conduza o fluxo de visita ou reunião até a confirmação.
+5. Consulte o handoff apresentado no Chat.
+6. Abra `/dashboard`, selecione o lead e confira qualificação, histórico, imóveis e agendamento.
+7. No Swagger, crie um follow-up para o mesmo lead com `scheduled_at` em horário futuro próximo e timezone explícito.
+8. Aguarde o vencimento e o ciclo do worker; confirme que a mensagem surge no Chat sem novo envio do usuário.
+9. Consulte o follow-up e confirme `WEB/SUCCESS`, `attempt_count = 1` e `COMPLETED`; aguarde outro ciclo para demonstrar ausência de duplicidade.
+10. Exiba os logs do backend e do worker, observando request IDs, eventos e ausência de conteúdo conversacional.
+
+## Limitações conhecidas
+
+- A entrega automática de follow-up existe apenas no Chat WEB; não há WhatsApp, Evolution API ou e-mail.
+- O `llama-server` é externo ao Compose e sua disponibilidade/desempenho depende do host.
+- O RAG implementado recupera imóveis vetorizados; não há base genérica de documentos, FAQs ou conhecimento de bairros em chunks.
+- O fluxo de agendamento suporta `VISITA` e `REUNIAO`; o tipo conceitual `CONTATO` não está implementado.
+- A máquina completa de estados comerciais do lead não está implementada.
+- O dashboard é somente leitura e não mostra follow-ups.
+- Não há autenticação, autorização, CRM completo, alta disponibilidade ou integração de observabilidade externa.
+- O requisito original cita `GET /health`; a rota real, por causa do prefixo da API, é `GET /api/v1/health`.
+
+## Evoluções futuras
+
+- Integração com WhatsApp pela Evolution API.
+- Canal real de e-mail e políticas persistentes de retry/backoff.
+- Máquina completa de estados comerciais do lead.
+- Base textual de conhecimento para RAG de bairros, FAQs, financiamento e políticas.
+- Autenticação e controles de acesso para o dashboard.
+- Avaliação formal de qualidade e desempenho em cenários de produção.
+
+## Dataset: referência, uso e atribuição
+
+O projeto utiliza o arquivo `data/raw/curitiba_apartment_real_estate_data.csv`, identificado como **Curitiba Apartment Real Estate Data**. A origem registrada é o dataset **Curitiba Apartment Prices**, publicado no Kaggle por **wittmannf**.
+
+A base é utilizada exclusivamente para fins acadêmicos, experimentação e desenvolvimento da POC do Hackathon FIAP. A atribuição da origem deve ser preservada, e qualquer redistribuição ou uso deve respeitar os termos e a licença informados pelo publicador no Kaggle.
+
+## Documentação adicional
+
+- [Arquitetura](docs/ARCHITECTURE.md)
+- [Requisitos originais](docs/REQUIREMENTS.md)
+- [Rastreabilidade](docs/TRACEABILITY.md)
+- [Convenções](docs/CONVENTIONS.md)
+- [Frontend](frontend/README.md)
