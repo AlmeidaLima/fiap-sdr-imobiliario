@@ -41,6 +41,7 @@ class LeadFollowUpAttemptCreateRequest(BaseModel):
         "MANUAL",
         "EMAIL",
         "WHATSAPP",
+        "WEB",
     ]
     status: Literal[
         "SUCCESS",
@@ -59,6 +60,7 @@ class LeadFollowUpAttemptResponse(BaseModel):
         "MANUAL",
         "EMAIL",
         "WHATSAPP",
+        "WEB",
     ]
     status: Literal[
         "SUCCESS",

@@ -17,6 +17,17 @@ class AppointmentRepository:
     def get_by_id(self, appointment_id: int) -> Appointment | None:
         return self.db.get(Appointment, appointment_id)
 
+    def list_by_lead_id(self, lead_id: int) -> list[Appointment]:
+        statement = (
+            select(Appointment)
+            .where(Appointment.lead_id == lead_id)
+            .order_by(
+                Appointment.scheduled_at.desc(),
+                Appointment.id.desc(),
+            )
+        )
+        return list(self.db.scalars(statement).all())
+
     def get_by_idempotency_key(
             self,
             idempotency_key: str,

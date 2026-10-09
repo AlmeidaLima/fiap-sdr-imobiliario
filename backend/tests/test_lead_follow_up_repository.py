@@ -450,3 +450,68 @@ def test_successful_attempt_removes_follow_up_from_pending_list(
     assert persisted_follow_up.completed_at is not None
 
     assert follow_up.id not in pending_ids
+
+
+def test_claim_next_pending_uses_order_cursor_and_status_filters(db, lead):
+    repository = LeadFollowUpRepository(db)
+    now = datetime.now(timezone.utc)
+    first = repository.create(make_follow_up(
+        lead.id,
+        scheduled_at=now - timedelta(minutes=3),
+    ))
+    second = repository.create(make_follow_up(
+        lead.id,
+        scheduled_at=now - timedelta(minutes=2),
+    ))
+    repository.create(make_follow_up(
+        lead.id,
+        status="CANCELLED",
+        scheduled_at=now - timedelta(minutes=4),
+    ))
+    repository.create(make_follow_up(
+        lead.id,
+        status="COMPLETED",
+        scheduled_at=now - timedelta(minutes=5),
+        completed_at=now,
+    ))
+    repository.create(make_follow_up(
+        lead.id,
+        scheduled_at=now + timedelta(minutes=1),
+    ))
+    db.commit()
+
+    claimed_first = repository.claim_next_pending(now)
+    db.rollback()
+    claimed_second = repository.claim_next_pending(
+        now,
+        cursor=(first.scheduled_at, first.id),
+    )
+    db.rollback()
+
+    assert claimed_first.id == first.id
+    assert claimed_second.id == second.id
+
+
+def test_claim_next_pending_skips_row_locked_by_another_session(db, lead):
+    now = datetime.now(timezone.utc)
+    repository = LeadFollowUpRepository(db)
+    first = repository.create(make_follow_up(
+        lead.id,
+        scheduled_at=now - timedelta(minutes=2),
+    ))
+    second = repository.create(make_follow_up(
+        lead.id,
+        scheduled_at=now - timedelta(minutes=1),
+    ))
+    db.commit()
+
+    locked = repository.claim_next_pending(now)
+    other_db = SessionLocal()
+    try:
+        other = LeadFollowUpRepository(other_db).claim_next_pending(now)
+        assert locked.id == first.id
+        assert other.id == second.id
+    finally:
+        other_db.rollback()
+        other_db.close()
+        db.rollback()

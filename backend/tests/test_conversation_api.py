@@ -1,9 +1,15 @@
+import io
+import logging
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.database.conversation_repository import ConversationRepository
+from app.database.message_repository import MessageRepository
+from app.database.session import SessionLocal
+from app.core.observability import SafeKeyValueFormatter
 
 
 client = TestClient(app)
@@ -65,6 +71,84 @@ def test_conversation_first_turn_returns_next_question():
     )
 
     assert body["properties"] == []
+    assert isinstance(body["user_message_id"], int)
+    assert isinstance(body["assistant_message_id"], int)
+    assert body["assistant_message_id"] > body["user_message_id"]
+
+
+def test_get_public_conversation_messages_and_after_id():
+    conversation_id = f"test-{uuid4()}"
+    turn = client.post(
+        "/api/v1/conversations/turn",
+        json={
+            "conversation_id": conversation_id,
+            "message": "Quero comprar um apartamento",
+        },
+    )
+    assert turn.status_code == 200
+    body = turn.json()
+
+    db = SessionLocal()
+    try:
+        conversation = ConversationRepository(db).find_by_conversation_id(
+            conversation_id
+        )
+        MessageRepository(db).create(
+            conversation_id=conversation.id,
+            role="system",
+            content="Mensagem interna",
+        )
+    finally:
+        db.close()
+
+    history = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages"
+    )
+    assert history.status_code == 200
+    assert [item["role"] for item in history.json()["messages"]] == [
+        "user", "assistant",
+    ]
+    assert [item["id"] for item in history.json()["messages"]] == [
+        body["user_message_id"],
+        body["assistant_message_id"],
+    ]
+
+    incremental = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages",
+        params={"after_id": body["user_message_id"]},
+    )
+    assert incremental.status_code == 200
+    assert [item["id"] for item in incremental.json()["messages"]] == [
+        body["assistant_message_id"],
+    ]
+
+
+def test_get_messages_returns_empty_and_validates_after_id():
+    conversation_id = f"test-empty-{uuid4()}"
+    db = SessionLocal()
+    try:
+        ConversationRepository(db).create(conversation_id=conversation_id)
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages"
+    )
+    assert response.status_code == 200
+    assert response.json() == {"messages": []}
+
+    invalid = client.get(
+        f"/api/v1/conversations/{conversation_id}/messages?after_id=-1"
+    )
+    assert invalid.status_code == 422
+
+
+def test_get_messages_returns_conversation_not_found():
+    response = client.get(
+        f"/api/v1/conversations/missing-{uuid4()}/messages"
+    )
+    assert response.status_code == 404
+    assert response.json()["error"] == "conversation_not_found"
 
 
 def test_conversation_api_preserves_state_between_turns():
@@ -310,3 +394,41 @@ def test_conversation_limits_llm_history_to_six_records(monkeypatch):
     assert [message["role"] for message in history] == [
         "user", "assistant", "user", "assistant", "user", "assistant",
     ]
+
+
+def test_conversation_turn_logs_safe_events_with_request_id():
+    logger = logging.getLogger("app")
+    original_handlers = list(logger.handlers)
+    original_level = logger.level
+    original_propagate = logger.propagate
+    output = io.StringIO()
+    handler = logging.StreamHandler(output)
+    handler.setFormatter(SafeKeyValueFormatter())
+    logger.handlers = [handler]
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    conversation_id = f"observability-{uuid4()}"
+    request_id = "ea22ec31-9ff2-43cd-8ea4-e115754ee508"
+
+    try:
+        response = client.post(
+            "/api/v1/conversations/turn",
+            headers={"X-Request-ID": request_id},
+            json={
+                "conversation_id": conversation_id,
+                "message": "SEGREDO_TESTE_CONVERSA",
+            },
+        )
+    finally:
+        logger.handlers = original_handlers
+        logger.setLevel(original_level)
+        logger.propagate = original_propagate
+
+    assert response.status_code == 200
+    assert "event=conversation_turn_started" in output.getvalue()
+    assert "event=conversation_turn_completed" in output.getvalue()
+    assert f"request_id={request_id}" in output.getvalue()
+    assert f"conversation_id={conversation_id}" in output.getvalue()
+    assert "qualified=false" in output.getvalue()
+    assert "property_count=0" in output.getvalue()
+    assert "SEGREDO_TESTE_CONVERSA" not in output.getvalue()

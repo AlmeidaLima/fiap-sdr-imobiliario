@@ -121,6 +121,21 @@ describe("LeadHandoffPanel", () => {
         expect(screen.getByText("73 m²")).toBeInTheDocument();
     });
 
+    it("exibe fallback quando o título do imóvel é nulo", () => {
+        render(
+            <LeadHandoffPanel
+                handoff={createHandoff({
+                    property: {
+                        ...createHandoff().property!,
+                        title: null,
+                    },
+                })}
+            />,
+        );
+
+        expect(screen.getByText("Não informado")).toBeInTheDocument();
+    });
+
     it("exibe o Appointment persistido da VISITA", () => {
         render(<LeadHandoffPanel handoff={createHandoff()} />);
 

@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { Chat } from "../components/chat/Chat";
 import { createAppointment } from "../services/appointmentService";
-import { sendConversationTurn } from "../services/conversationService";
+import {
+  getConversationMessages,
+  sendConversationTurn,
+} from "../services/conversationService";
 import { getLeadHandoff } from "../services/leadHandoffService";
 import type { LeadHandoffResponse } from "../types/leadHandoff";
 import type { AppointmentCreateResponse } from "../types/appointment";
@@ -17,6 +20,7 @@ vi.mock("../services/appointmentService", () => ({
 }));
 vi.mock("../services/conversationService", () => ({
   sendConversationTurn: vi.fn(),
+  getConversationMessages: vi.fn(),
 }));
 vi.mock("../services/leadHandoffService", () => ({
   getLeadHandoff: vi.fn(),
@@ -24,7 +28,9 @@ vi.mock("../services/leadHandoffService", () => ({
 
 const mockedCreateAppointment = vi.mocked(createAppointment);
 const mockedSendConversationTurn = vi.mocked(sendConversationTurn);
+const mockedGetConversationMessages = vi.mocked(getConversationMessages);
 const mockedGetLeadHandoff = vi.mocked(getLeadHandoff);
+let nextMessageId = 1;
 
 function createState(
   overrides: Partial<ConversationState> = {},
@@ -57,8 +63,12 @@ function createState(
 }
 
 function turnResponse(state: ConversationState): ConversationTurnResponse {
+  const userMessageId = nextMessageId++;
+  const assistantMessageId = nextMessageId++;
   return {
     conversation_id: state.conversation_id,
+    user_message_id: userMessageId,
+    assistant_message_id: assistantMessageId,
     response: "ConfirmaÃ§Ã£o recebida.",
     state,
     qualification: {
@@ -140,6 +150,8 @@ function sendMessage(message = "confirmo") {
 describe("persistÃªncia do agendamento no Chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    nextMessageId = 1;
+    mockedGetConversationMessages.mockResolvedValue({ messages: [] });
     sessionStorage.clear();
 
     mockedGetLeadHandoff.mockResolvedValue(handoffResponse());

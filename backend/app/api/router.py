@@ -6,6 +6,9 @@ from app.api.routes.appointments import (
 from app.api.routes.conversations import (
     router as conversations_router,
 )
+from app.api.routes.dashboard import (
+    router as dashboard_router,
+)
 from app.api.routes.health import (
     router as health_router,
 )
@@ -32,3 +35,4 @@ api_router.include_router(info_router)
 api_router.include_router(properties_router)
 api_router.include_router(conversations_router)
 api_router.include_router(lead_follow_ups_router)
+api_router.include_router(dashboard_router)

@@ -1,201 +1,174 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import logging
 from unittest.mock import Mock
 
 from app.jobs.lead_follow_up_job import LeadFollowUpJob
 
 
-NOW = datetime(2026, 10, 2, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
 
-def test_run_lists_due_pending_follow_ups():
-    repository = Mock()
-    repository.list_pending.return_value = []
+def follow_up(identifier: int, minutes: int = 0):
+    item = Mock()
+    item.id = identifier
+    item.lead_id = identifier * 10
+    item.scheduled_at = NOW + timedelta(minutes=minutes)
+    return item
 
-    message_service = Mock()
 
-    job = LeadFollowUpJob(
+def make_job(repository, delivery):
+    return LeadFollowUpJob(
         follow_up_repository=repository,
-        message_service=message_service,
+        delivery_service=delivery,
         now_provider=lambda: NOW,
+        logger=Mock(),
     )
 
-    result = job.run()
 
-    repository.list_pending.assert_called_once_with(
+def test_run_empty_cycle():
+    repository = Mock()
+    repository.claim_next_pending.return_value = None
+    result = make_job(repository, Mock()).run()
+    assert result.processed == 0
+    repository.claim_next_pending.assert_called_once_with(
         due_before=NOW,
-        limit=100,
+        cursor=None,
     )
 
-    assert result == []
 
-def test_run_generates_message_for_due_follow_up():
+def test_run_delivers_multiple_follow_ups_and_advances_cursor():
+    first = follow_up(1, -2)
+    second = follow_up(2, -1)
     repository = Mock()
+    repository.claim_next_pending.side_effect = [first, second, None]
+    delivery = Mock()
+    delivery.deliver_claimed.return_value = Mock(
+        conversation_id="conversation",
+        attempt=Mock(attempt_number=1),
+    )
 
-    follow_up = Mock()
-    repository.list_pending.return_value = [follow_up]
+    result = make_job(repository, delivery).run()
 
-    message_service = Mock()
-    message_service.generate.return_value = "Mensagem de follow-up"
+    assert result.processed == 2
+    assert result.delivered == 2
+    assert repository.claim_next_pending.call_args_list[1].kwargs["cursor"] == (
+        first.scheduled_at,
+        first.id,
+    )
+    assert repository.claim_next_pending.call_args_list[2].kwargs["cursor"] == (
+        second.scheduled_at,
+        second.id,
+    )
 
+
+def test_failure_advances_cursor_and_does_not_repeat_in_cycle():
+    failed = follow_up(1, -2)
+    next_item = follow_up(2, -1)
+    repository = Mock()
+    repository.claim_next_pending.side_effect = [failed, next_item, None]
+    delivery = Mock()
+    delivery.deliver_claimed.side_effect = [
+        RuntimeError("database unavailable"),
+        Mock(conversation_id="conversation", attempt=Mock(attempt_number=1)),
+    ]
+
+    result = make_job(repository, delivery).run()
+
+    assert result.processed == 2
+    assert result.failed == 1
+    assert result.delivered == 1
+    assert delivery.deliver_claimed.call_count == 2
+    assert repository.claim_next_pending.call_args_list[1].kwargs["cursor"] == (
+        failed.scheduled_at,
+        failed.id,
+    )
+
+
+def test_skipped_follow_up_does_not_stop_cycle():
+    first = follow_up(1)
+    repository = Mock()
+    repository.claim_next_pending.side_effect = [first, None]
+    delivery = Mock()
+    delivery.deliver_claimed.return_value = None
+    result = make_job(repository, delivery).run()
+    assert result.skipped == 1
+    assert result.failed == 0
+
+
+def test_more_than_one_hundred_are_processed_in_same_cycle():
+    items = [follow_up(index, index - 150) for index in range(1, 102)]
+    repository = Mock()
+    repository.claim_next_pending.side_effect = [*items, None]
+    delivery = Mock()
+    delivery.deliver_claimed.return_value = Mock(
+        conversation_id="conversation",
+        attempt=Mock(attempt_number=1),
+    )
+    logger = Mock()
     job = LeadFollowUpJob(
         follow_up_repository=repository,
-        message_service=message_service,
+        delivery_service=delivery,
         now_provider=lambda: NOW,
+        logger=logger,
     )
 
     result = job.run()
 
-    message_service.generate.assert_called_once_with(follow_up)
+    assert result.processed == 101
+    assert result.delivered == 101
+    assert repository.claim_next_pending.call_count == 102
+    assert sum(
+        call.args[0] == "follow_up_batch_completed"
+        for call in logger.info.call_args_list
+    ) == 2
 
-    assert result == ["Mensagem de follow-up"]
 
-    repository.create_attempt.assert_not_called()
-    repository.update.assert_not_called()
-    repository.commit.assert_not_called()
-
-def test_run_generates_messages_for_multiple_due_follow_ups():
+def test_stop_requested_after_first_delivery_prevents_next_claim():
+    first = follow_up(1)
     repository = Mock()
+    repository.claim_next_pending.side_effect = [first, follow_up(2), None]
+    stop_requested = False
+    delivery = Mock()
 
-    first_follow_up = Mock()
-    second_follow_up = Mock()
+    def deliver(follow_up=None, due_before=None):
+        nonlocal stop_requested
+        stop_requested = True
+        return Mock(conversation_id="conversation", attempt=Mock(attempt_number=1))
 
-    repository.list_pending.return_value = [
-        first_follow_up,
-        second_follow_up,
-    ]
-
-    message_service = Mock()
-    message_service.generate.side_effect = [
-        "Primeira mensagem",
-        "Segunda mensagem",
-    ]
-
+    delivery.deliver_claimed.side_effect = deliver
     job = LeadFollowUpJob(
         follow_up_repository=repository,
-        message_service=message_service,
+        delivery_service=delivery,
         now_provider=lambda: NOW,
+        logger=Mock(),
+        should_stop=lambda: stop_requested,
     )
 
     result = job.run()
 
-    assert message_service.generate.call_count == 2
-
-    message_service.generate.assert_any_call(first_follow_up)
-    message_service.generate.assert_any_call(second_follow_up)
-
-    assert result == [
-        "Primeira mensagem",
-        "Segunda mensagem",
-    ]
-
-def test_run_continues_when_message_generation_fails():
-    repository = Mock()
-
-    first_follow_up = Mock()
-    second_follow_up = Mock()
-
-    repository.list_pending.return_value = [
-        first_follow_up,
-        second_follow_up,
-    ]
-
-    message_service = Mock()
-    message_service.generate.side_effect = [
-        RuntimeError("Falha ao gerar mensagem"),
-        "Segunda mensagem",
-    ]
-
-    job = LeadFollowUpJob(
-        follow_up_repository=repository,
-        message_service=message_service,
-        now_provider=lambda: NOW,
-    )
-
-    result = job.run()
-
-    assert message_service.generate.call_count == 2
-
-    message_service.generate.assert_any_call(first_follow_up)
-    message_service.generate.assert_any_call(second_follow_up)
-
-    assert result == ["Segunda mensagem"]
-
-def test_run_returns_empty_list_when_there_are_no_due_follow_ups():
-    repository = Mock()
-    repository.list_pending.return_value = []
-
-    message_service = Mock()
-
-    job = LeadFollowUpJob(
-        follow_up_repository=repository,
-        message_service=message_service,
-        now_provider=lambda: NOW,
-    )
-
-    result = job.run()
-
-    assert result == []
-
-    message_service.generate.assert_not_called()
-
-
-def test_run_requests_at_most_one_hundred_follow_ups():
-    repository = Mock()
-    repository.list_pending.return_value = []
-
-    message_service = Mock()
-
-    job = LeadFollowUpJob(
-        follow_up_repository=repository,
-        message_service=message_service,
-        now_provider=lambda: NOW,
-    )
-
-    job.run()
-
-    repository.list_pending.assert_called_once_with(
+    assert result.processed == 1
+    repository.claim_next_pending.assert_called_once_with(
         due_before=NOW,
-        limit=100,
+        cursor=None,
     )
 
 
-def test_run_preserves_repository_order():
+def test_processing_failure_log_does_not_include_exception_text(caplog):
     repository = Mock()
-
-    first_follow_up = Mock()
-    second_follow_up = Mock()
-    third_follow_up = Mock()
-
-    repository.list_pending.return_value = [
-        first_follow_up,
-        second_follow_up,
-        third_follow_up,
-    ]
-
-    message_service = Mock()
-    message_service.generate.side_effect = [
-        "Primeira mensagem",
-        "Segunda mensagem",
-        "Terceira mensagem",
-    ]
-
-    job = LeadFollowUpJob(
-        follow_up_repository=repository,
-        message_service=message_service,
-        now_provider=lambda: NOW,
+    repository.claim_next_pending.side_effect = [follow_up(1), None]
+    delivery = Mock()
+    delivery.deliver_claimed.side_effect = RuntimeError(
+        "SEGREDO_TESTE_FOLLOW_UP"
     )
+    logger = logging.getLogger("test_safe_follow_up_job")
 
-    result = job.run()
+    with caplog.at_level(logging.ERROR, logger=logger.name):
+        LeadFollowUpJob(
+            follow_up_repository=repository,
+            delivery_service=delivery,
+            now_provider=lambda: NOW,
+            logger=logger,
+        ).run()
 
-    assert result == [
-        "Primeira mensagem",
-        "Segunda mensagem",
-        "Terceira mensagem",
-    ]
-
-    assert message_service.generate.call_args_list == [
-        ((first_follow_up,),),
-        ((second_follow_up,),),
-        ((third_follow_up,),),
-    ]
-
+    assert "follow_up_processing_failed" in caplog.text
+    assert "SEGREDO_TESTE_FOLLOW_UP" not in caplog.text

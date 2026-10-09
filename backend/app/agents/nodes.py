@@ -1,3 +1,6 @@
+import logging
+from time import monotonic
+
 from app.agents.state import AgentState
 from app.schemas.conversation import ConversationState
 from app.services.appointment_flow_service import AppointmentFlowService
@@ -12,6 +15,9 @@ from app.services.llm_client import LLMClientError
 from app.services.llm_service import LLMService
 from app.services.lead_score_service import LeadScoreService
 from app.services.property_selection_service import PropertySelectionService
+
+
+LOGGER = logging.getLogger(__name__)
 
 def process_message_node(state: AgentState) -> dict:
     conversation_id = state["conversation_id"]
@@ -88,10 +94,35 @@ def search_properties_node(
         property_search_service: ConversationPropertySearchService,
 ) -> dict:
     conversation_state = state["conversation_state"]
+    started = monotonic()
+    LOGGER.info(
+        "property_search_started",
+        extra={"conversation_id": conversation_state.conversation_id},
+    )
 
-    properties = property_search_service.search(
-        conversation_state,
-        limit=state.get("limit", 5),
+    try:
+        properties = property_search_service.search(
+            conversation_state,
+            limit=state.get("limit", 5),
+        )
+    except Exception as exc:
+        LOGGER.error(
+            "property_search_failed",
+            extra={
+                "conversation_id": conversation_state.conversation_id,
+                "duration_ms": round((monotonic() - started) * 1000),
+                "error_type": type(exc).__name__,
+            },
+        )
+        raise
+
+    LOGGER.info(
+        "property_search_completed",
+        extra={
+            "conversation_id": conversation_state.conversation_id,
+            "property_count": len(properties),
+            "duration_ms": round((monotonic() - started) * 1000),
+        },
     )
 
     property_ids = [
@@ -113,12 +144,14 @@ def generate_response_node(
         state: AgentState,
         llm_service: LLMService,
 ) -> dict:
+    conversation_id = state["conversation_state"].conversation_id
     properties = state.get("properties", [])
     properties_context = [
         _property_to_context(property_embedding.property)
         for property_embedding, _ in properties
     ]
 
+    started = monotonic()
     try:
         response = llm_service.generate_response(
             user_message=state["message"],
@@ -127,7 +160,22 @@ def generate_response_node(
             conversation_history=state.get("conversation_history", []),
             properties_context=properties_context,
         )
-    except LLMClientError:
+        LOGGER.info(
+            "llm_call_completed",
+            extra={
+                "conversation_id": conversation_id,
+                "duration_ms": round((monotonic() - started) * 1000),
+            },
+        )
+    except LLMClientError as exc:
+        LOGGER.warning(
+            "llm_fallback_activated",
+            extra={
+                "conversation_id": conversation_id,
+                "duration_ms": round((monotonic() - started) * 1000),
+                "error_type": type(exc).__name__,
+            },
+        )
         response = _build_fallback_response(state)
 
     return {

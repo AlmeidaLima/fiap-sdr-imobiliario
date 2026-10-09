@@ -13,19 +13,25 @@ import {
 } from "vitest";
 
 import { Chat } from "../components/chat/Chat";
-import { sendConversationTurn } from "../services/conversationService";
+import {
+  getConversationMessages,
+  sendConversationTurn,
+} from "../services/conversationService";
 
 vi.mock("../services/conversationService", () => ({
   sendConversationTurn: vi.fn(),
+  getConversationMessages: vi.fn(),
 }));
 
 const mockedSendConversationTurn = vi.mocked(
   sendConversationTurn,
 );
+const mockedGetConversationMessages = vi.mocked(getConversationMessages);
 
 describe("Chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedGetConversationMessages.mockResolvedValue({ messages: [] });
   });
 
   test("renderiza a mensagem inicial e o campo de envio", () => {
@@ -50,6 +56,10 @@ describe("Chat", () => {
     ).toBeInTheDocument();
 
     expect(
+      screen.getByRole("link", { name: "Dashboard" }),
+    ).toHaveAttribute("href", "/dashboard");
+
+    expect(
       screen.queryByRole("heading", {
         name: "Qualificação do lead",
       }),
@@ -59,6 +69,8 @@ describe("Chat", () => {
   test("envia a mensagem e exibe a resposta do backend", async () => {
     mockedSendConversationTurn.mockResolvedValue({
       conversation_id: "conversation-test",
+      user_message_id: 1,
+      assistant_message_id: 2,
       response: "Posso ajudar com isso. Qual é o seu orçamento máximo?",
       state: {
         conversation_id: "conversation-test",
@@ -152,6 +164,8 @@ describe("Chat", () => {
     mockedSendConversationTurn
       .mockResolvedValueOnce({
         conversation_id: "conversation-test",
+        user_message_id: 1,
+        assistant_message_id: 2,
         response: "Qual é o seu orçamento máximo?",
         state: {
           conversation_id: "conversation-test",
@@ -187,6 +201,8 @@ describe("Chat", () => {
       })
       .mockResolvedValueOnce({
         conversation_id: "conversation-test",
+        user_message_id: 3,
+        assistant_message_id: 4,
         response: "Agora me diga quantos quartos você procura.",
         state: {
           conversation_id: "conversation-test",
@@ -309,6 +325,8 @@ describe("Chat", () => {
   test("exibe os imóveis retornados após a qualificação", async () => {
   mockedSendConversationTurn.mockResolvedValue({
     conversation_id: "conversation-test",
+    user_message_id: 1,
+    assistant_message_id: 2,
     response: "Estas são as opções recuperadas para você.",
     state: {
       conversation_id: "conversation-test",
@@ -425,6 +443,8 @@ describe("Chat", () => {
 test("exibe a resposta do backend quando qualificado sem imóveis", async () => {
   mockedSendConversationTurn.mockResolvedValue({
     conversation_id: "conversation-test",
+    user_message_id: 1,
+    assistant_message_id: 2,
     response: "Não encontrei imóveis compatíveis com esses critérios.",
     state: {
       conversation_id: "conversation-test",

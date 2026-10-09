@@ -1,8 +1,41 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.lead import Lead  # noqa: F401
 from app.models.conversation import Conversation
+from app.models.message import Message
+
+
+def ranked_conversations_subquery():
+    last_interaction = (
+        select(
+            Message.conversation_id.label("conversation_pk"),
+            func.max(Message.created_at).label("last_interaction_at"),
+        )
+        .group_by(Message.conversation_id)
+        .subquery()
+    )
+
+    return (
+        select(
+            Conversation.id.label("conversation_pk"),
+            last_interaction.c.last_interaction_at,
+            func.row_number().over(
+                partition_by=Conversation.lead_id,
+                order_by=(
+                    last_interaction.c.last_interaction_at.desc().nulls_last(),
+                    Conversation.updated_at.desc(),
+                    Conversation.id.desc(),
+                ),
+            ).label("conversation_rank"),
+        )
+        .outerjoin(
+            last_interaction,
+            last_interaction.c.conversation_pk == Conversation.id,
+        )
+        .where(Conversation.lead_id.is_not(None))
+        .subquery()
+    )
 
 
 class ConversationRepository:
@@ -39,6 +72,18 @@ class ConversationRepository:
             == conversation_id
         )
 
+        return self.db.scalar(statement)
+
+    def find_latest_by_lead_id(self, lead_id: int) -> Conversation | None:
+        ranked = ranked_conversations_subquery()
+        statement = (
+            select(Conversation)
+            .join(ranked, ranked.c.conversation_pk == Conversation.id)
+            .where(
+                Conversation.lead_id == lead_id,
+                ranked.c.conversation_rank == 1,
+            )
+        )
         return self.db.scalar(statement)
 
     def update_state(

@@ -21,13 +21,13 @@ def index_embeddings(
 ) -> None:
     db = SessionLocal()
 
-    document_service = PropertyDocumentService()
-    embedding_service = EmbeddingService()
-
     indexed = 0
     errors = 0
 
     try:
+        document_service = PropertyDocumentService()
+        embedding_service = EmbeddingService()
+
         print("Iniciando indexação de embeddings...")
         print(f"Tamanho do lote: {batch_size}")
 
@@ -118,7 +118,7 @@ def index_embeddings(
 
                     print(
                         f"[ERRO] Property "
-                        f"{property_.id}: {error}"
+                        f"{property_.id}: {type(error).__name__}"
                     )
 
             if batch_embeddings:
@@ -144,7 +144,7 @@ def index_embeddings(
 
                     print(
                         "[ERRO] Falha ao salvar lote: "
-                        f"{error}"
+                        f"{type(error).__name__}"
                     )
 
                     # Tenta salvar individualmente para
@@ -165,7 +165,7 @@ def index_embeddings(
                             print(
                                 "[ERRO] Property "
                                 f"{property_embedding.property_id}: "
-                                f"{item_error}"
+                                f"{type(item_error).__name__}"
                             )
 
             db.expunge_all()
@@ -179,6 +179,19 @@ def index_embeddings(
 
     finally:
         db.close()
+
+
+def main() -> None:
+    args = parse_arguments()
+
+    try:
+        index_embeddings(
+            limit=args.limit,
+            batch_size=args.batch_size,
+        )
+    except Exception as error:
+        print(f"[ERRO] Falha na indexação: {type(error).__name__}")
+        raise SystemExit(1) from None
 
 
 def parse_arguments():
@@ -213,9 +226,4 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
-    args = parse_arguments()
-
-    index_embeddings(
-        limit=args.limit,
-        batch_size=args.batch_size,
-    )
+    main()
