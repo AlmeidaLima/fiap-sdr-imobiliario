@@ -74,6 +74,8 @@ def test_conversation_first_turn_returns_next_question():
     assert isinstance(body["user_message_id"], int)
     assert isinstance(body["assistant_message_id"], int)
     assert body["assistant_message_id"] > body["user_message_id"]
+    assert body["user_message_created_at"]
+    assert body["assistant_message_created_at"]
 
 
 def test_get_public_conversation_messages_and_after_id():
@@ -112,6 +114,10 @@ def test_get_public_conversation_messages_and_after_id():
         body["user_message_id"],
         body["assistant_message_id"],
     ]
+    assert history.json()["state"]["commercial_intent"] == "COMPRA"
+    assert history.json()["state"]["lead_score"] == 20
+    assert history.json()["state"]["lead_classification"] == "FRIO"
+    assert history.json()["qualification"]["qualified"] is False
 
     incremental = client.get(
         f"/api/v1/conversations/{conversation_id}/messages",
@@ -135,7 +141,11 @@ def test_get_messages_returns_empty_and_validates_after_id():
         f"/api/v1/conversations/{conversation_id}/messages"
     )
     assert response.status_code == 200
-    assert response.json() == {"messages": []}
+    body = response.json()
+    assert body["messages"] == []
+    assert body["state"]["conversation_id"] == conversation_id
+    assert body["state"]["lead_score"] == 0
+    assert body["qualification"]["qualified"] is False
 
     invalid = client.get(
         f"/api/v1/conversations/{conversation_id}/messages?after_id=-1"

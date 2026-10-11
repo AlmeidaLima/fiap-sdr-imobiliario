@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database.lead_follow_up_repository import (
     LeadFollowUpRepository,
 )
+from app.database.appointment_repository import AppointmentRepository
 from app.database.session import get_db
 from app.schemas.lead_follow_up import (
     LeadFollowUpAttemptCreateRequest,
@@ -27,6 +28,7 @@ def _lead_follow_up_service(
 ) -> LeadFollowUpService:
     return LeadFollowUpService(
         follow_up_repository=LeadFollowUpRepository(db),
+        appointment_repository=AppointmentRepository(db),
     )
 
 

@@ -179,7 +179,7 @@ Endpoints principais:
 | Método e caminho | Finalidade |
 |---|---|
 | `POST /api/v1/conversations/turn` | Processa um turno conversacional |
-| `GET /api/v1/conversations/{conversation_id}/messages` | Histórico público e polling por `after_id` |
+| `GET /api/v1/conversations/{conversation_id}/messages` | Histórico público, estado persistido da conversa e polling por `after_id` |
 | `GET /api/v1/properties` | Busca estruturada |
 | `GET /api/v1/properties/semantic-search` | Busca semântica |
 | `GET /api/v1/properties/hybrid-search` | Busca híbrida |
@@ -189,7 +189,7 @@ Endpoints principais:
 | `GET /api/v1/handoffs/{conversation_id}` | Projeção de handoff para o corretor |
 | `GET /api/v1/dashboard/leads` | Lista leads no dashboard |
 | `GET /api/v1/dashboard/leads/{lead_id}` | Detalha um lead |
-| `POST /api/v1/follow-ups` | Agenda follow-up futuro |
+| `POST /api/v1/follow-ups` | Agenda follow-up futuro e valida eventual agendamento do mesmo lead |
 | `GET /api/v1/follow-ups/{follow_up_id}` | Consulta follow-up |
 | `POST /api/v1/follow-ups/{follow_up_id}/cancel` | Cancela follow-up pendente |
 | `POST /api/v1/follow-ups/{follow_up_id}/attempts` | Registra tentativa manual/integrada |

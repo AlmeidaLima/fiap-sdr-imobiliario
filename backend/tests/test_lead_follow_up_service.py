@@ -31,6 +31,75 @@ def service(repository):
     )
 
 
+def test_schedule_accepts_appointment_from_same_lead(repository):
+    appointment_repository = Mock()
+    appointment_repository.get_by_id.return_value = Appointment(
+        id=20,
+        lead_id=10,
+        appointment_type="REUNIAO",
+        scheduled_at=NOW,
+        status="CONFIRMED",
+        idempotency_key="appointment-same-lead",
+    )
+    service = LeadFollowUpService(
+        follow_up_repository=repository,
+        appointment_repository=appointment_repository,
+        now_provider=lambda: NOW,
+    )
+
+    result = service.schedule(
+        lead_id=10,
+        appointment_id=20,
+        scheduled_at=NOW + timedelta(days=1),
+    )
+
+    assert result.appointment_id == 20
+    repository.create.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("appointment", "expected_error"),
+    [
+        (None, "appointment_not_found"),
+        (
+            Appointment(
+                id=20,
+                lead_id=11,
+                appointment_type="REUNIAO",
+                scheduled_at=NOW,
+                status="CONFIRMED",
+                idempotency_key="appointment-other-lead",
+            ),
+            "appointment_lead_mismatch",
+        ),
+    ],
+)
+def test_schedule_rejects_invalid_appointment_relationship(
+        repository,
+        appointment,
+        expected_error,
+):
+    appointment_repository = Mock()
+    appointment_repository.get_by_id.return_value = appointment
+    service = LeadFollowUpService(
+        follow_up_repository=repository,
+        appointment_repository=appointment_repository,
+        now_provider=lambda: NOW,
+    )
+
+    with pytest.raises(ApplicationException) as caught:
+        service.schedule(
+            lead_id=10,
+            appointment_id=20,
+            scheduled_at=NOW + timedelta(days=1),
+        )
+
+    assert caught.value.error == expected_error
+    repository.get_by_idempotency_key.assert_not_called()
+    repository.create.assert_not_called()
+    repository.commit.assert_not_called()
+
+
 def test_schedule_creates_pending_follow_up(service, repository):
     scheduled_at = NOW + timedelta(days=1)
 

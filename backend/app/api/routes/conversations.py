@@ -27,6 +27,9 @@ from app.services.conversation_persistence_service import (
 from app.services.conversation_property_search_service import (
     ConversationPropertySearchService,
 )
+from app.services.conversation_qualification_service import (
+    ConversationQualificationService,
+)
 from app.services.embedding_service import EmbeddingService
 from app.services.llm_client import LLMClient
 from app.services.llm_service import LLMService
@@ -68,6 +71,10 @@ def get_conversation_messages(
         conversation_id=conversation.id,
         after_id=after_id,
     )
+    state = ConversationState(
+        conversation_id=conversation_id,
+        **(conversation.state or {}),
+    )
     return ConversationMessagesResponse(
         messages=[
             ConversationMessageResponse(
@@ -77,7 +84,9 @@ def get_conversation_messages(
                 created_at=message.created_at,
             )
             for message in messages
-        ]
+        ],
+        state=state,
+        qualification=ConversationQualificationService().qualify(state),
     )
 
 
@@ -261,6 +270,8 @@ def process_conversation_turn(
         conversation_id=turn_result.state.conversation_id,
         user_message_id=user_message.id,
         assistant_message_id=assistant_message.id,
+        user_message_created_at=user_message.created_at,
+        assistant_message_created_at=assistant_message.created_at,
         response=turn_result.response,
         state=turn_result.state,
         qualification=turn_result.qualification,

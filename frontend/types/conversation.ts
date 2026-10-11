@@ -68,6 +68,8 @@ export interface ConversationTurnResponse {
   conversation_id: string;
   user_message_id: number;
   assistant_message_id: number;
+  user_message_created_at?: string;
+  assistant_message_created_at?: string;
   response: string;
   state: ConversationState;
   qualification: ConversationQualification;
@@ -93,4 +95,6 @@ export interface ConversationMessage {
 
 export interface ConversationMessagesResponse {
   messages: ConversationMessage[];
+  state?: ConversationState;
+  qualification?: ConversationQualification;
 }
