@@ -145,6 +145,10 @@ class ConversationTurnResponse(BaseModel):
 
     assistant_message_id: int
 
+    user_message_created_at: datetime
+
+    assistant_message_created_at: datetime
+
     response: str
 
     state: ConversationState
@@ -167,3 +171,7 @@ class ConversationMessagesResponse(BaseModel):
     messages: list[ConversationMessageResponse] = Field(
         default_factory=list,
     )
+
+    state: ConversationState
+
+    qualification: ConversationQualification

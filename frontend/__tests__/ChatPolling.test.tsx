@@ -33,6 +33,8 @@ function turnResponse(): ConversationTurnResponse {
     conversation_id: "polling-conversation",
     user_message_id: 10,
     assistant_message_id: 12,
+    user_message_created_at: "2026-10-05T12:00:00Z",
+    assistant_message_created_at: "2026-10-05T12:00:02Z",
     response: "Resposta do turno",
     state: {
       conversation_id: "polling-conversation",
@@ -94,6 +96,72 @@ describe("Chat polling", () => {
 
     expect(screen.getByText("Histórico persistido")).toBeInTheDocument();
     expect(screen.queryByText(/Eu sou a LIA/)).not.toBeInTheDocument();
+  });
+
+  test("restores commercial state and keeps it after follow-up polling", async () => {
+    const restoredState = turnResponse().state;
+    restoredState.lead_name = "Beatriz Demo";
+    restoredState.commercial_intent = "COMPRA";
+    restoredState.lead_score = 20;
+    restoredState.lead_classification = "FRIO";
+    restoredState.neighborhood = "Cristo Rei";
+    restoredState.max_price = "500000";
+    restoredState.min_bedrooms = 2;
+    restoredState.min_bathrooms = 1;
+    restoredState.semantic_preferences = ["sacada"];
+
+    mockedGetMessages
+      .mockResolvedValueOnce({
+        messages: [
+          {
+            id: 1,
+            role: "user",
+            content: "Quero comprar um apartamento",
+            created_at: "2026-10-05T12:00:00Z",
+          },
+          {
+            id: 2,
+            role: "assistant",
+            content: "Em qual bairro?",
+            created_at: "2026-10-05T12:00:01Z",
+          },
+        ],
+        state: restoredState,
+        qualification: {
+          qualified: false,
+          missing_fields: [],
+          next_question: null,
+        },
+      })
+      .mockResolvedValueOnce({
+        messages: [{
+          id: 3,
+          role: "assistant",
+          content: "Follow-up após reload",
+          created_at: "2026-10-05T12:05:00Z",
+        }],
+      });
+
+    render(<Chat />);
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByText("20 / 100")).toBeInTheDocument();
+    expect(screen.getByText("Compra")).toBeInTheDocument();
+    expect(screen.getByText("FRIO")).toBeInTheDocument();
+    expect(screen.getByText("Cristo Rei")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+
+    await act(async () => vi.advanceTimersByTime(3000));
+    await act(async () => Promise.resolve());
+
+    expect(screen.getByText("Follow-up após reload")).toBeInTheDocument();
+    expect(screen.getByText("20 / 100")).toBeInTheDocument();
+    expect(screen.getByText("Compra")).toBeInTheDocument();
+    expectMessageOrder(
+      "Quero comprar um apartamento",
+      "Em qual bairro?",
+      "Follow-up após reload",
+    );
   });
 
   test("polling displays WEB message once and prevents overlapping polls", async () => {

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from app.database.session import SessionLocal
 from app.main import app
 from app.models.lead import Lead
+from app.models.appointment import Appointment
 from app.models.lead_follow_up import LeadFollowUp
 from app.models.lead_follow_up_attempt import LeadFollowUpAttempt
 
@@ -51,6 +52,10 @@ def cleanup_test_data():
                     follow_up_ids
                 )
             ).delete(synchronize_session=False)
+
+        db.query(Appointment).filter(
+            Appointment.lead_id.in_(lead_ids)
+        ).delete(synchronize_session=False)
 
         db.query(Lead).filter(
             Lead.id.in_(lead_ids)
@@ -104,6 +109,24 @@ def create_follow_up(lead_id: int) -> dict:
     return response.json()
 
 
+def create_appointment(lead_id: int) -> int:
+    db = SessionLocal()
+    try:
+        appointment = Appointment(
+            lead_id=lead_id,
+            appointment_type="REUNIAO",
+            scheduled_at=datetime.now(timezone.utc) + timedelta(days=2),
+            status="CONFIRMED",
+            idempotency_key=f"{TEST_PREFIX}appointment-{uuid4().hex}",
+        )
+        db.add(appointment)
+        db.commit()
+        db.refresh(appointment)
+        return appointment.id
+    finally:
+        db.close()
+
+
 def test_post_creates_and_persists_follow_up():
     lead_id = create_lead()
 
@@ -129,6 +152,81 @@ def test_post_creates_and_persists_follow_up():
         assert persisted.status == "PENDING"
         assert persisted.attempt_count == 0
 
+    finally:
+        db.close()
+
+
+def test_post_accepts_appointment_from_same_lead():
+    lead_id = create_lead()
+    appointment_id = create_appointment(lead_id)
+
+    response = client.post(
+        "/api/v1/follow-ups",
+        json={
+            "lead_id": lead_id,
+            "appointment_id": appointment_id,
+            "scheduled_at": (
+                datetime.now(timezone.utc) + timedelta(days=1)
+            ).isoformat(),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["appointment_id"] == appointment_id
+
+
+def test_post_rejects_appointment_from_another_lead_without_persisting():
+    lead_id = create_lead()
+    other_lead_id = create_lead()
+    appointment_id = create_appointment(other_lead_id)
+
+    response = client.post(
+        "/api/v1/follow-ups",
+        json={
+            "lead_id": lead_id,
+            "appointment_id": appointment_id,
+            "scheduled_at": (
+                datetime.now(timezone.utc) + timedelta(days=1)
+            ).isoformat(),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "appointment_lead_mismatch"
+
+    db = SessionLocal()
+    try:
+        persisted = list(db.scalars(select(LeadFollowUp).where(
+            LeadFollowUp.lead_id == lead_id
+        )))
+        assert persisted == []
+    finally:
+        db.close()
+
+
+def test_post_rejects_missing_appointment_without_persisting():
+    lead_id = create_lead()
+
+    response = client.post(
+        "/api/v1/follow-ups",
+        json={
+            "lead_id": lead_id,
+            "appointment_id": 999999999,
+            "scheduled_at": (
+                datetime.now(timezone.utc) + timedelta(days=1)
+            ).isoformat(),
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"] == "appointment_not_found"
+
+    db = SessionLocal()
+    try:
+        persisted = list(db.scalars(select(LeadFollowUp).where(
+            LeadFollowUp.lead_id == lead_id
+        )))
+        assert persisted == []
     finally:
         db.close()
 

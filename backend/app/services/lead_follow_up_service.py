@@ -8,6 +8,7 @@ from app.core.exceptions import ApplicationException
 from app.database.lead_follow_up_repository import (
     LeadFollowUpRepository,
 )
+from app.database.appointment_repository import AppointmentRepository
 from app.models.lead_follow_up import LeadFollowUp
 from app.models.lead_follow_up_attempt import LeadFollowUpAttempt
 
@@ -16,9 +17,11 @@ class LeadFollowUpService:
     def __init__(
             self,
             follow_up_repository: LeadFollowUpRepository,
+            appointment_repository: AppointmentRepository | None = None,
             now_provider: Callable[[], datetime] | None = None,
     ):
         self.follow_up_repository = follow_up_repository
+        self.appointment_repository = appointment_repository
         self.now_provider = now_provider or (
             lambda: datetime.now(timezone.utc)
         )
@@ -55,6 +58,29 @@ class LeadFollowUpService:
                 ),
                 error="follow_up_in_past",
             )
+
+        if appointment_id is not None:
+            if self.appointment_repository is None:
+                raise RuntimeError(
+                    "AppointmentRepository is required to validate an appointment."
+                )
+
+            appointment = self.appointment_repository.get_by_id(
+                appointment_id
+            )
+            if appointment is None:
+                raise ApplicationException(
+                    detail="Agendamento não encontrado.",
+                    status_code=404,
+                    error="appointment_not_found",
+                )
+            if appointment.lead_id != lead_id:
+                raise ApplicationException(
+                    detail=(
+                        "O agendamento não pertence ao lead informado."
+                    ),
+                    error="appointment_lead_mismatch",
+                )
 
         idempotency_key = self.build_idempotency_key(
             lead_id=lead_id,

@@ -187,6 +187,12 @@ export function Chat() {
       if (response.messages.length > 0) {
         hasPersistedConversationRef.current = true;
       }
+      if (initial && !hasStartedTurnRef.current && response.state) {
+        setConversationState(response.state);
+      }
+      if (initial && !hasStartedTurnRef.current && response.qualification) {
+        setQualification(response.qualification);
+      }
       for (const message of response.messages) {
         seenMessageIdsRef.current.add(message.id);
         lastMessageIdRef.current = Math.max(
@@ -305,6 +311,7 @@ export function Chat() {
     const assistantMessage: ChatMessage = {
       id: `persisted-${response.assistant_message_id}`,
       persistedId: response.assistant_message_id,
+      persistedCreatedAt: response.assistant_message_created_at,
       role: "assistant",
       content: response.response,
     };
@@ -323,6 +330,7 @@ export function Chat() {
                 ...message,
                 id: `persisted-${response.user_message_id}`,
                 persistedId: response.user_message_id,
+                persistedCreatedAt: response.user_message_created_at,
               }
             : message
         ));
