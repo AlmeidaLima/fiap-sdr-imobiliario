@@ -1,158 +1,223 @@
-# Agente SDR Imobiliário com IA
+# 🏠 Hackathon FIAP — LIA: Agente SDR Imobiliário com Inteligência Artificial
 
-POC desenvolvida para o Hackathon da Pós-Graduação FIAP — IA para Devs. O sistema representa um atendimento comercial imobiliário assistido por IA: conversa com o lead, mantém contexto, qualifica a oportunidade, calcula um score determinístico, consulta imóveis reais, conduz seleção e agendamento, gera handoff para o corretor e permite acompanhamento por dashboard.
+**Pós-graduação em Inteligência Artificial para Desenvolvedores — FIAP**
 
-Esta é uma POC acadêmica, não um CRM ou uma plataforma imobiliária de produção.
+A **LIA** é uma prova de conceito (POC) de agente SDR (*Sales Development Representative*) imobiliário que automatiza o atendimento inicial, qualifica oportunidades comerciais, busca imóveis, auxilia no agendamento de visitas ou reuniões e disponibiliza informações estruturadas para o corretor.
 
-## Funcionalidades implementadas
+> ⚠️ **Aviso importante:** esta é uma solução acadêmica demonstrativa, não um CRM de produção. A pontuação comercial é calculada por regras determinísticas; respostas produzidas por modelos de linguagem devem ser avaliadas no contexto de uso. Não há envio automático por WhatsApp ou e-mail.
 
-- Chat web persistente com histórico e polling incremental.
-- Orquestração conversacional com LangGraph.
-- Identificação do lead, intenção comercial e preferências.
-- Qualificação progressiva e Lead Score determinístico (`FRIO`, `MORNO`, `QUENTE`).
-- Busca estruturada, semântica e híbrida de imóveis persistidos.
-- Seleção de imóvel, agendamento de visita ou reunião e handoff estruturado.
-- Dashboard somente leitura com lista e detalhe dos leads.
-- Follow-up automático pelo canal interno `WEB`, processado por worker separado.
-- LLM local externo compatível com a API OpenAI e fallback determinístico.
-- PostgreSQL, pgvector, migrations Alembic e importação reproduzível do dataset.
-- Observabilidade básica com request ID e logs estruturados seguros.
+## 📋 Sumário
 
-## Tecnologias
+- [🏠 Sobre o projeto](#-sobre-o-projeto)
+- [✨ Funcionalidades](#-funcionalidades)
+- [🏗️ Arquitetura](#️-arquitetura)
+- [🔄 Fluxo de atendimento](#-fluxo-de-atendimento)
+- [🧠 Inteligência artificial e modelos](#-inteligência-artificial-e-modelos)
+- [📁 Estrutura do repositório](#-estrutura-do-repositório)
+- [▶️ Como executar](#️-como-executar)
+- [🛠️ Tecnologias](#️-tecnologias)
+- [📊 Resultados e testes](#-resultados-e-testes)
+- [🎥 Vídeo de demonstração](#-vídeo-de-demonstração)
+- [📄 Documentação técnica](#-documentação-técnica)
+- [⚠️ Limitações](#️-limitações)
+- [👥 Equipe](#-equipe)
+- [📜 Licença e finalidade](#-licença-e-finalidade)
 
-| Área | Tecnologias |
+## 🏠 Sobre o projeto
+
+O atendimento comercial imobiliário exige compreender necessidades do cliente, identificar oportunidades e registrar informações para continuidade do trabalho do corretor. A **LIA** reúne essas etapas em uma aplicação web com recursos de inteligência artificial e regras de negócio auditáveis.
+
+**Principais objetivos:**
+
+- 💬 Atender o cliente por um chat web com histórico persistente.
+- 🎯 Identificar intenção de **compra, aluguel ou investimento** e preferências imobiliárias.
+- 📈 Qualificar o lead e calcular um **Lead Score determinístico**.
+- 🔎 Buscar imóveis reais da base usando filtros e recuperação semântica.
+- 📅 Apoiar o agendamento de **visita ou reunião** e preparar o *handoff* para o corretor.
+- 📊 Disponibilizar um dashboard de acompanhamento dos leads.
+- 🔔 Executar follow-up automático no **Chat WEB** após agendamento pela API.
+
+## ✨ Funcionalidades
+
+| Módulo | O que faz |
 |---|---|
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS, Vitest |
-| Backend | Python 3.12, FastAPI, SQLAlchemy, Alembic, Pytest |
-| IA | LangGraph, llama.cpp/llama-server opcional, sentence-transformers |
-| Dados | PostgreSQL 16, pgvector |
-| Infraestrutura | Docker e Docker Compose |
+| Atendimento inteligente | Conversa com o lead, preserva contexto e coleta preferências |
+| Qualificação comercial | Identifica intenção, região, orçamento, características e urgência |
+| Lead Score | Pontuação e classificação **FRIO / MORNO / QUENTE** por regras determinísticas |
+| Busca imobiliária | Consultas estruturadas, semânticas e híbridas |
+| Agendamento e handoff | Registra visita/reunião e consolida dados para o corretor |
+| Dashboard | Consulta leads, histórico, preferências e agendamentos; **somente leitura** |
+| Follow-up automático | Worker envia mensagem na conversa WEB no horário programado |
+| Resposta com LLM | Integração **opcional** a modelo local; fallback determinístico quando indisponível |
 
-## Arquitetura resumida
+## 🏗️ Arquitetura
 
 ```mermaid
-flowchart LR
-    U[Lead] --> C[Chat Next.js]
-    B[Corretor] --> D[Dashboard Next.js]
-    C -->|HTTP e polling| API[FastAPI]
-    D --> API
-    API --> G[LangGraph]
-    G --> S[Services]
-    API --> S
-    S --> R[Repositories]
-    R --> DB[(PostgreSQL + pgvector)]
-    G -. opcional .-> L[llama-server externo]
-    W[Follow-up worker] --> S
-    W --> DB
+flowchart TD
+    Cliente[Cliente / Lead] --> Chat[Chat Web — Next.js]
+    Corretor[Corretor] --> Dash[Dashboard — Next.js]
+    Chat --> API[FastAPI — Python]
+    Dash --> API
+    API --> Agent[LangGraph — Orquestração conversacional]
+    Agent --> Regras[Services — Qualificação / Score / Agendamento]
+    Agent --> Busca[Busca estruturada + RAG imobiliário]
+    Agent -. geração opcional .-> LLM[LLM local externo — llama-server]
+    Regras --> Repo[Repositories]
+    Busca --> Repo
+    Repo --> DB[(PostgreSQL + pgvector)]
+    Worker[Follow-up Worker] --> DB
+    Worker --> Regras
 ```
 
-As rotas HTTP coordenam casos de uso por services, e repositories concentram o acesso ao banco. Regras comerciais críticas, como Lead Score, validações, estados e persistência, não são delegadas ao LLM. Consulte [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) para detalhes e [docs/TRACEABILITY.md](docs/TRACEABILITY.md) para a relação entre requisitos, código e testes.
+O frontend apresenta o Chat e o Dashboard. A API FastAPI coordena os casos de uso; o LangGraph organiza o fluxo conversacional; serviços implementam as regras de negócio; e os repositórios persistem os dados no PostgreSQL. O worker executa o follow-up de forma independente.
 
-## Pré-requisitos
+**Decisão arquitetural:** o LLM **não** calcula o Lead Score, não substitui validações comerciais e não é responsável pela persistência ou pela decisão final de agendamento.
 
-- Git.
-- Docker Desktop com Docker Compose v2.
-- Rede, espaço em disco e tempo adicional no primeiro uso do modelo de embeddings em cada ambiente ou container que ainda não possua cache.
-- Opcional: `llama-server` executando no host para respostas geradas por LLM.
+## 🔄 Fluxo de atendimento
 
-Os comandos abaixo partem da raiz do repositório. Portas e credenciais locais de desenvolvimento vêm do arquivo `.env` e podem ser ajustadas antes da inicialização.
+```text
+Cliente inicia conversa
+         │
+         ▼
+Identificação da intenção e preferências
+         │
+         ▼
+Qualificação comercial + Lead Score
+         │
+         ▼
+Busca estruturada e semântica de imóveis
+         │
+         ▼
+Apresentação de cards e seleção do imóvel
+         │
+         ▼
+Agendamento de visita/reunião + Handoff
+         │
+         ▼
+Dashboard para acompanhamento do corretor
+         │
+         ▼
+Follow-up agendado via API Swagger
+         │
+         ▼
+Worker processa no horário programado
+         │
+         ▼
+Mensagem automática aparece no Chat WEB
+```
 
-## Configuração do ambiente
+## 🧠 Inteligência artificial e modelos
 
-### Linux/macOS
+| Componente | Papel na solução |
+|---|---|
+| **LangGraph** | Orquestra o estado e as etapas do atendimento |
+| **LLM local (opcional)** | Gera respostas em linguagem natural por servidor compatível com API OpenAI |
+| **Fallback determinístico** | Mantém o atendimento funcional sem o modelo de linguagem |
+| **RAG imobiliário** | Recupera imóveis cadastrados para contextualizar as respostas |
+| **Embeddings** | Representa características dos imóveis para recuperação por significado |
+| **sentence-transformers** | Gera embeddings com `intfloat/multilingual-e5-small` |
+| **PostgreSQL + pgvector** | Armazena imóveis e vetores e permite consultas híbridas |
+| **Lead Score determinístico** | Classifica oportunidades sem delegar o cálculo ao LLM |
+
+A implementação de RAG utiliza **registros de imóveis vetorizados**, e não uma base genérica de documentos ou FAQs.
+
+## 📁 Estrutura do repositório
+
+```text
+fiap-sdr-imobiliario/
+├── backend/               # API FastAPI, agente, serviços, migrations e testes
+│   ├── app/
+│   ├── alembic/
+│   ├── scripts/
+│   └── tests/
+├── frontend/              # Chat, Dashboard e testes do Next.js
+├── data/
+│   └── raw/               # Dataset de imóveis de Curitiba
+├── docs/                  # Arquitetura, requisitos e rastreabilidade
+│   ├── ARCHITECTURE.md
+│   ├── REQUIREMENTS.md
+│   ├── TRACEABILITY.md
+│   └── CONVENTIONS.md
+├── video/                 # Vídeo de demonstração
+├── .env.example
+├── compose.yaml
+└── README.md
+```
+
+> O vídeo local deve passar por auditoria visual de privacidade antes de ser publicado ou enviado para hospedagem externa.
+
+## ▶️ Como executar
+
+### Pré-requisitos
+
+- Git
+- Docker Desktop com Docker Compose v2
+- Acesso à internet no primeiro download do modelo de embeddings
+- Opcional: servidor local `llama-server` para geração de respostas por LLM
+
+### 1. Clonar o repositório
 
 ```bash
-git clone <URL_DO_REPOSITORIO>
+git clone https://github.com/AlmeidaLima/fiap-sdr-imobiliario.git
 cd fiap-sdr-imobiliario
-cp .env.example .env
 ```
 
-### Windows PowerShell
+### 2. Configurar variáveis de ambiente
+
+**Windows PowerShell:**
 
 ```powershell
-git clone <URL_DO_REPOSITORIO>
-Set-Location fiap-sdr-imobiliario
 Copy-Item .env.example .env
 ```
 
-O `.env.example` contém apenas valores locais de desenvolvimento. Não versione o `.env` nem substitua seus valores por credenciais reais no repositório.
-
-## Inicialização segura com Docker Compose
-
-O worker consulta tabelas da aplicação. Em um clone limpo, aplique as migrations antes de subir o conjunto completo:
+**Linux/macOS:**
 
 ```bash
-# 1. Inicie somente o PostgreSQL
+cp .env.example .env
+```
+
+Revise os valores locais do `.env`. **Não publique credenciais reais no Git.**
+
+### 3. Preparar banco, schema e imóveis
+
+Execute os comandos abaixo **na raiz do repositório**, em um ambiente novo:
+
+```bash
+# Iniciar PostgreSQL
 docker compose up -d postgres
 
-# 2. Confirme que o PostgreSQL já aceita conexões
+# Verificar se o banco aceita conexões
 docker compose exec postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
-# 3. Aplique o schema
+# Aplicar migrations
 docker compose run --rm backend alembic upgrade head
 
-# 4. Importe os imóveis
+# Importar imóveis
 docker compose run --rm backend python -m scripts.import_curitiba_properties
 
-# 5. Gere os embeddings
+# Gerar embeddings
 docker compose run --rm backend python -m scripts.index_property_embeddings --batch-size 100
+```
 
-# 6. Suba backend, worker e frontend
+> Aguarde o `pg_isready` indicar que o PostgreSQL aceita conexões antes de aplicar as migrations. O primeiro download do modelo de embeddings pode demorar. A execução em containers diferentes pode exigir downloads adicionais devido ao cache não compartilhado.
+
+### 4. Iniciar a aplicação
+
+```bash
 docker compose up --build -d
-
-# 7. Verifique os serviços
 docker compose ps
 ```
 
-Só prossiga para o Alembic quando `pg_isready` informar que o servidor está aceitando conexões; se ainda não estiver, aguarde e execute a verificação novamente.
+| Interface | Endereço padrão |
+|---|---|
+| 💬 Chat | http://localhost:3000 |
+| 📊 Dashboard | http://localhost:3000/dashboard |
+| 📘 Swagger | http://localhost:8000/docs |
+| ❤️ Health | http://localhost:8000/api/v1/health |
 
-O modelo `intfloat/multilingual-e5-small` não está incorporado à imagem Docker, e o Compose atual não configura um volume compartilhado para o cache do Hugging Face. Assim, o container efêmero usado na indexação pode baixar o modelo, e o backend pode precisar baixá-lo novamente em seu próprio container quando realizar a primeira busca que utilize embeddings. Cada primeiro uso sem cache disponível pode exigir rede, espaço em disco e tempo adicional. O comportamento exato depende do cache presente em cada ambiente ou container.
+### 5. Opcional: habilitar LLM local
 
-Execuções posteriores do indexador processam apenas imóveis disponíveis que ainda não possuem embedding, embora a inicialização do modelo continue sujeita ao cache disponível naquele container.
-
-Depois da preparação inicial, o comando usual é:
-
-```bash
-docker compose up --build -d
-```
-
-## Migrations
-
-```bash
-docker compose run --rm backend alembic heads
-docker compose run --rm backend alembic current
-docker compose run --rm backend alembic upgrade head
-```
-
-O projeto deve possuir um único head. Não altere o schema manualmente: Alembic é o mecanismo oficial de evolução do banco.
-
-## Importação de imóveis
-
-O arquivo versionado é `data/raw/curitiba_apartment_real_estate_data.csv`. A importação lê, limpa, normaliza, valida e persiste os registros no PostgreSQL:
-
-```bash
-docker compose run --rm backend python -m scripts.import_curitiba_properties
-```
-
-O script usa uma chave externa determinística e pode ser executado novamente sem criar duplicatas para os mesmos registros. Linhas inválidas são contabilizadas pelo processo.
-
-## Geração de embeddings
-
-```bash
-docker compose run --rm backend python -m scripts.index_property_embeddings --batch-size 100
-```
-
-Opções disponíveis:
-
-```bash
-docker compose run --rm backend python -m scripts.index_property_embeddings --help
-```
-
-Os documentos vetoriais são projeções dos próprios imóveis, não um acervo genérico de FAQs ou documentos fragmentados em chunks. A busca híbrida combina filtros estruturados e similaridade em pgvector.
-
-## LLM local e fallback determinístico
-
-O Compose não inicia um servidor de LLM. Quando desejado, execute no host um `llama-server` compatível com a API OpenAI e configure:
+O Compose **não** inicia o servidor de LLM. Com um `llama-server` externo ativo, configure no `.env`:
 
 ```dotenv
 LLM_BASE_URL=http://host.docker.internal:8080
@@ -160,62 +225,9 @@ LLM_MODEL=local-model
 LLM_TIMEOUT=30
 ```
 
-O alias em `LLM_MODEL` deve corresponder ao modelo exposto pelo servidor. Sem LLM, com timeout ou indisponibilidade, o atendimento continua pelo fallback determinístico. Qualificação, score, busca, seleção, agendamento e follow-up não dependem de o LLM estar disponível.
+O nome em `LLM_MODEL` precisa corresponder ao modelo exposto pelo servidor. Sem LLM, o sistema utiliza respostas determinísticas.
 
-## Interfaces e endpoints
-
-Com os valores padrão de `.env.example`:
-
-| Recurso | URL |
-|---|---|
-| Chat | <http://localhost:3000/> |
-| Dashboard | <http://localhost:3000/dashboard> |
-| Swagger | <http://localhost:8000/docs> |
-| Health | <http://localhost:8000/api/v1/health> |
-| Informações da API | <http://localhost:8000/api/v1/info> |
-
-Endpoints principais:
-
-| Método e caminho | Finalidade |
-|---|---|
-| `POST /api/v1/conversations/turn` | Processa um turno conversacional |
-| `GET /api/v1/conversations/{conversation_id}/messages` | Histórico público, estado persistido da conversa e polling por `after_id` |
-| `GET /api/v1/properties` | Busca estruturada |
-| `GET /api/v1/properties/semantic-search` | Busca semântica |
-| `GET /api/v1/properties/hybrid-search` | Busca híbrida |
-| `POST /api/v1/properties/natural-language-search` | Interpreta busca em linguagem natural |
-| `POST /api/v1/appointments` | Cria agendamento a partir da conversa |
-| `GET /api/v1/appointments/{appointment_id}` | Consulta agendamento |
-| `GET /api/v1/handoffs/{conversation_id}` | Projeção de handoff para o corretor |
-| `GET /api/v1/dashboard/leads` | Lista leads no dashboard |
-| `GET /api/v1/dashboard/leads/{lead_id}` | Detalha um lead |
-| `POST /api/v1/follow-ups` | Agenda follow-up futuro e valida eventual agendamento do mesmo lead |
-| `GET /api/v1/follow-ups/{follow_up_id}` | Consulta follow-up |
-| `POST /api/v1/follow-ups/{follow_up_id}/cancel` | Cancela follow-up pendente |
-| `POST /api/v1/follow-ups/{follow_up_id}/attempts` | Registra tentativa manual/integrada |
-
-### Dashboard
-
-O dashboard é uma projeção somente leitura. A lista mostra nome, status persistido, intenção, score, classificação e última interação. O detalhe reúne preferências, histórico público, imóveis apresentados, imóvel selecionado, agendamentos e handoff. Não há edição de leads nem seção de follow-up.
-
-### Follow-up automático WEB
-
-O serviço `follow-up-worker` executa um ciclo imediato e repete a verificação a cada 30 segundos. Follow-ups `PENDING` vencidos são adquiridos em lotes determinísticos com `FOR UPDATE SKIP LOCKED`. Para cada entrega bem-sucedida, uma única transação persiste:
-
-- uma `Message` com role `assistant` na conversa mais recente do lead;
-- uma tentativa `WEB/SUCCESS`;
-- o incremento de `attempt_count`;
-- o status `COMPLETED` e `completed_at`.
-
-O Chat consulta mensagens novas a cada 3 segundos, deduplica por ID e apresenta a mensagem automaticamente. `CANCELLED` e `COMPLETED` não são processados. Uma falha técnica causa rollback integral; o item permanece `PENDING` e pode ser reavaliado no ciclo seguinte.
-
-Registros `LeadFollowUpAttempt` podem ter status `SUCCESS` ou `FAILED`. No fluxo automático, o worker só cria a tentativa `WEB/SUCCESS` quando a entrega é concluída: mensagem, tentativa, incremento de `attempt_count` e transição para `COMPLETED` são confirmados atomicamente no mesmo commit. Se ocorrer uma falha técnica antes desse commit, toda a transação é revertida, nenhuma tentativa `FAILED` é criada automaticamente e o follow-up permanece elegível para nova avaliação em um ciclo posterior. Portanto, `FAILED` não representa automaticamente toda falha técnica do worker; esse status pode ser registrado pelos fluxos explícitos suportados pela API.
-
-`Lead.status` e `LeadFollowUp.status` têm significados distintos. `COMPLETED` indica apenas a conclusão daquele follow-up e não equivale a lead `ENCERRADO`. A máquina comercial `NOVO`/`EM_ATENDIMENTO`/`AGUARDANDO_RESPOSTA`/`FOLLOWUP_1`/`FOLLOWUP_2`/`ENCERRADO` não foi implementada. Não há entrega por WhatsApp ou e-mail.
-
-## Testes e validações
-
-Com o ambiente em execução:
+### 6. Executar testes
 
 ```bash
 # Backend
@@ -227,89 +239,96 @@ docker compose exec frontend npm run lint
 docker compose run --rm frontend npm run build
 ```
 
-Alternativamente, para desenvolvimento local, instale as dependências de cada diretório e execute:
-
-```bash
-cd backend
-python -m pytest -v
-```
-
-```bash
-cd frontend
-npm ci
-npm run test:run
-npm run lint
-npm run build
-```
-
-Os testes de integração do backend requerem PostgreSQL compatível com o projeto.
-
-## Observabilidade
-
-Toda resposta HTTP recebe `X-Request-ID`. Um UUID externo válido é canonicalizado; quando ausente ou inválido, a aplicação gera um UUID v4. O ID é propagado por `request.state` e `ContextVar` aos eventos internos da requisição.
-
-Os logs usam texto estruturado `key=value`, allowlist de campos e sanitização contra caracteres de controle. Eventos relevantes incluem:
-
-- `request_completed` e `request_failed`;
-- início e conclusão de turno conversacional;
-- conclusão de chamada ao LLM e ativação do fallback;
-- início, conclusão e falha da busca de imóveis;
-- ciclo, entrega, falha e encerramento do worker.
-
-Bodies, query strings, headers, prompts, conteúdo de mensagens, estado conversacional, embeddings, parâmetros SQL, traceback bruto e credenciais não são registrados pelos eventos da aplicação.
+### 7. Acompanhar logs e encerrar
 
 ```bash
 docker compose logs -f backend
 docker compose logs -f follow-up-worker
+
+# Interrompe os containers sem apagar os volumes
+docker compose down
 ```
 
-Não há Prometheus, Grafana, Sentry, OpenTelemetry ou tracing distribuído nesta POC.
+> ⚠️ Evite `docker compose down -v` em ambientes com dados que deseja preservar: esse comando pode remover volumes do PostgreSQL.
 
-## Roteiro de demonstração
+## 🛠️ Tecnologias
 
-Pré-condições: migrations aplicadas, imóveis importados, embeddings gerados e todos os serviços saudáveis. O LLM local é opcional.
+| Camada | Ferramentas |
+|---|---|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| Backend | Python 3.12, FastAPI, SQLAlchemy, Alembic |
+| Agente de IA | LangGraph |
+| Geração de linguagem | LLM local opcional via llama.cpp / llama-server |
+| Recuperação de imóveis | RAG, sentence-transformers, embeddings |
+| Banco de dados | PostgreSQL 16, pgvector |
+| Infraestrutura | Docker, Docker Compose |
+| Qualidade | Pytest, Vitest, lint e build do frontend |
 
-1. Abra o Chat e envie uma mensagem com nome e intenção de compra ou aluguel.
-2. Responda às perguntas de região, orçamento e quartos; observe qualificação e Lead Score.
-3. Solicite imóveis e confirme que os cards correspondem a registros persistidos.
-4. Selecione um imóvel e conduza o fluxo de visita ou reunião até a confirmação.
-5. Consulte o handoff apresentado no Chat.
-6. Abra `/dashboard`, selecione o lead e confira qualificação, histórico, imóveis e agendamento.
-7. No Swagger, crie um follow-up para o mesmo lead com `scheduled_at` em horário futuro próximo e timezone explícito.
-8. Aguarde o vencimento e o ciclo do worker; confirme que a mensagem surge no Chat sem novo envio do usuário.
-9. Consulte o follow-up e confirme `WEB/SUCCESS`, `attempt_count = 1` e `COMPLETED`; aguarde outro ciclo para demonstrar ausência de duplicidade.
-10. Exiba os logs do backend e do worker, observando request IDs, eventos e ausência de conteúdo conversacional.
+## 📊 Resultados e testes
 
-## Limitações conhecidas
+A solução demonstra o ciclo comercial completo da POC: atendimento, qualificação, recuperação de imóveis, agendamento, handoff, consulta ao dashboard e envio automático de follow-up no Chat WEB.
 
-- A entrega automática de follow-up existe apenas no Chat WEB; não há WhatsApp, Evolution API ou e-mail.
-- O `llama-server` é externo ao Compose e sua disponibilidade/desempenho depende do host.
-- O RAG implementado recupera imóveis vetorizados; não há base genérica de documentos, FAQs ou conhecimento de bairros em chunks.
-- O fluxo de agendamento suporta `VISITA` e `REUNIAO`; o tipo conceitual `CONTATO` não está implementado.
-- A máquina completa de estados comerciais do lead não está implementada.
-- O dashboard é somente leitura e não mostra follow-ups.
-- Não há autenticação, autorização, CRM completo, alta disponibilidade ou integração de observabilidade externa.
-- O requisito original cita `GET /health`; a rota real, por causa do prefixo da API, é `GET /api/v1/health`.
+**Saídas disponíveis:**
 
-## Evoluções futuras
+- Histórico persistido de mensagens e estado do atendimento.
+- Score e classificação comercial do lead.
+- Cards de imóveis compatíveis com os filtros informados.
+- Registro de visita ou reunião e dados de handoff.
+- Lista e detalhe de leads no dashboard.
+- Status de follow-up (`PENDING`, `COMPLETED` ou `CANCELLED`) e tentativas de entrega.
 
-- Integração com WhatsApp pela Evolution API.
-- Canal real de e-mail e políticas persistentes de retry/backoff.
-- Máquina completa de estados comerciais do lead.
-- Base textual de conhecimento para RAG de bairros, FAQs, financiamento e políticas.
-- Autenticação e controles de acesso para o dashboard.
-- Avaliação formal de qualidade e desempenho em cenários de produção.
+**Como funciona o follow-up:** a criação é feita por `POST /api/v1/follow-ups` (Swagger/API); um worker verifica itens pendentes aproximadamente a cada **30 segundos**. No horário programado, registra a mensagem no histórico do Chat WEB. A interface consulta novas mensagens aproximadamente a cada **3 segundos**. O processo pode ser consultado por `GET /api/v1/follow-ups/{follow_up_id}`.
 
-## Dataset: referência, uso e atribuição
+Os comandos da seção anterior permitem reproduzir os testes. Os números finais de testes aprovados devem ser registrados conforme a última execução validada antes da entrega.
 
-O projeto utiliza o arquivo `data/raw/curitiba_apartment_real_estate_data.csv`, identificado como **Curitiba Apartment Real Estate Data**. A origem registrada é o dataset **Curitiba Apartment Prices**, publicado no Kaggle por **wittmannf**.
+## 🎥 Vídeo de demonstração
 
-A base é utilizada exclusivamente para fins acadêmicos, experimentação e desenvolvimento da POC do Hackathon FIAP. A atribuição da origem deve ser preservada, e qualquer redistribuição ou uso deve respeitar os termos e a licença informados pelo publicador no Kaggle.
+A apresentação da LIA demonstra:
 
-## Documentação adicional
+1. **Abertura:** objetivo da solução.
+2. **Tecnologias e arquitetura:** FastAPI, Next.js, LangGraph, LLM, RAG, pgvector e Lead Score.
+3. **Etapa 1:** atendimento inteligente.
+4. **Etapa 2:** qualificação comercial.
+5. **Etapa 3:** busca de imóveis, agendamento e handoff.
+6. **Etapa 4:** dashboard, agendamento do follow-up pelo Swagger e **mensagem automática aparecendo no Chat**.
+
+**Vídeo local:** [LIA — Hackathon FIAP — Apresentação](video/LIA_Hackathon_FIAP_Apresentacao.mp4).
+
+> A publicação deste vídeo depende da aprovação da auditoria visual de privacidade. Após a aprovação, ele poderá permanecer no repositório ou ser hospedado externamente, respeitando os limites do GitHub e as orientações da FIAP.
+
+## 📄 Documentação técnica
 
 - [Arquitetura](docs/ARCHITECTURE.md)
-- [Requisitos originais](docs/REQUIREMENTS.md)
-- [Rastreabilidade](docs/TRACEABILITY.md)
+- [Requisitos](docs/REQUIREMENTS.md)
+- [Rastreabilidade entre requisitos e testes](docs/TRACEABILITY.md)
 - [Convenções](docs/CONVENTIONS.md)
-- [Frontend](frontend/README.md)
+- [Documentação do frontend](frontend/README.md)
+
+- [Relatório técnico da LIA — Hackathon FIAP](docs/relatorio_tecnico_lia_hackathon_fiap.pdf)
+
+**Dataset:** `data/raw/curitiba_apartment_real_estate_data.csv`, identificado como *Curitiba Apartment Real Estate Data*, derivado de *Curitiba Apartment Prices*, publicado por **wittmannf** no Kaggle. Seu uso é acadêmico; devem ser respeitados os termos de licença e atribuição da fonte.
+
+## ⚠️ Limitações
+
+- O follow-up automático é entregue **somente pelo Chat WEB**; não há integração implementada com WhatsApp ou e-mail.
+- O dashboard é **somente leitura** e não oferece edição de leads.
+- O LLM é **opcional e externo** ao Docker Compose.
+- O RAG recupera imóveis cadastrados, não uma base documental genérica.
+- O fluxo de agendamento implementa **visita** e **reunião**.
+- Não há autenticação, CRM completo ou infraestrutura de produção.
+
+## 👥 Equipe
+
+| Integrante | RM |
+|---|---|
+| **[Nome do integrante 1]** | **[RM]** |
+| **[Nome do integrante 2]** | **[RM]** |
+| **[Nome do integrante 3]** | **[RM]** |
+
+> Substituir os campos acima pelos integrantes e respectivos RMs antes da entrega.
+
+## 📜 Licença e finalidade
+
+Projeto acadêmico desenvolvido para fins educacionais no **Hackathon da Pós-Graduação em Inteligência Artificial para Desenvolvedores da FIAP**.
+
+A licença de uso do código deve ser definida no arquivo `LICENSE`, caso a equipe opte por publicar o projeto sob uma licença específica. O dataset de terceiros permanece sujeito às condições de sua fonte original.
