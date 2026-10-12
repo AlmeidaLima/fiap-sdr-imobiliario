@@ -321,9 +321,10 @@ A apresentação da LIA demonstra:
 
 | Integrante | RM |
 |---|---|
-| **[Nome do integrante 1]** | **[RM]** |
-| **[Nome do integrante 2]** | **[RM]** |
-| **[Nome do integrante 3]** | **[RM]** |
+| **Rafael Almeida de Lima** | **[RM]** |
+| **Adalberto Ferreira de Albuquerque Filho** | **[RM]** |
+| **Vitoria Maria Santos de Oliveira** | **[RM]** |
+| **Felipe Rafael Gonçalves** | **[RM]** |
 
 > Substituir os campos acima pelos integrantes e respectivos RMs antes da entrega.
 
